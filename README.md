@@ -41,6 +41,7 @@ The second window equals twice the first plus six. FlashMP standardizes each win
 | If you have | Use | What you get |
 |---|---|---|
 | A numeric series and a pattern length | `stump(values, m)` | Nearest-neighbor distances and positions for each window |
+| A known incident and a second recording | [`abjoin(incident, recording, m)`](#find-a-known-incident-in-a-second-recording) | The closest window in the other recording for each input window |
 | Live samples and a fixed retention window | `StreamMP(m=…, window=…, egress=True)` | A profile over retained samples as old observations expire |
 | Training and evaluation series | `scan_leakage(train, test, m=…)` | Candidate overlapping windows, including scaled or sign-flipped matches |
 | A CSV and an agent that can call tools | MCP `ts_digest`, then `ts_drilldown` | A summary and a session handle for fetching exact samples by index |
@@ -68,6 +69,30 @@ Head-to-head guides: **[FlashMP vs STUMPY](docs/vs-stumpy.md)** · **[FlashMP vs
 ---
 
 ## Python and command-line examples
+
+### Find a known incident in a second recording
+
+A five-sample latency spike from yesterday is your query. Search today's recording for the same shape, even if the baseline and spike height have changed. Use the [source install above](#find-the-second-occurrence).
+
+```python
+import flashmp
+
+incident = [20, 20, 34, 30, 22]
+today = [81, 75, 84, 81, 88, 88, 116, 108, 92, 79, 80]
+distance, position, _, _ = flashmp.abjoin(incident, today, m=len(incident))
+start = int(position[0])
+print(start, today[start:start + len(incident)], f"{distance[0]:.6f}")
+```
+
+```text
+4 [88, 88, 116, 108, 92] 0.000000
+```
+
+The closest window starts at zero-based index 4. Each value in that window equals twice the corresponding incident value plus 48. The z-normalized distance therefore rounds to zero. This identifies a shape match. An alert that depends on absolute latency should also inspect the raw values.
+
+For longer inputs, `abjoin(a, b, m)` returns four arrays. The first pair gives distances and start indices in B for each window of A. The second pair gives the reverse direction. Both inputs need at least `m` samples, and `m` must be at least 3. A constant query window has no defined z-normalized distance and returns `inf` and index `-1`.
+
+In the [two-thread CPU benchmark](benchmarks/RESULTS.md), FlashMP computed both directions in 37.35 ms for series of 32,768 and 4,096 samples with a 64-sample window. That excludes native compilation and measures a warm call.
 
 ### Batch and multivariate profiles
 

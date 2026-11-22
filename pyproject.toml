@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "flashmp"
 version = "0.1.0"
-description = "SIMD-accelerated exact batch & bounded-window streaming Matrix Profile, multivariate mSTUMP, affine-invariant leakage scanning, and reversible agentic time-series digests."
+description = "Find repeated shapes and unusual windows in numeric time series with exact CPU matrix profiles, bounded-window streaming, and cross-series search."
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.10"

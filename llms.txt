@@ -5,6 +5,7 @@
 ## Interfaces
 
 - Python: `flashmp.stump(values, m)` takes an ordered numeric sequence and a window length in samples. `P_[i]` gives the z-normalized distance to the nearest eligible neighbor of window i. `I_[i]` gives that neighbor's start index. Constant windows are masked in the univariate self-join.
+- Cross-series shape search with `flashmp.abjoin(a, b, m)` returns `distance_a, index_in_b, distance_b, index_in_a`. Indices are zero-based window starts. Read the [known-incident example](https://github.com/pgg898200-ship-it/flashmp#find-a-known-incident-in-a-second-recording) for a checked input and output.
 - Streaming: `flashmp.StreamMP(m=..., window=..., egress=True)` maintains a profile as old samples expire.
 - Evaluation: `flashmp.scan_leakage(train, test, m=...)` flags correlated subsequences, including sign-flipped matches by default.
 - CLI: `flashmp mp metrics.csv --col latency_ms -m 64 --out profile.csv` writes the profile to CSV.
