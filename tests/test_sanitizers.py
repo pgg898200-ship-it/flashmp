@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+import platform
 import shutil
 import subprocess
 from pathlib import Path
@@ -12,7 +14,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_cpp_asan_ubsan_stress_harness(tmp_path: Path):
-    cxx = shutil.which("g++") or shutil.which("clang++")
+    is_macos = platform.system().lower() == "darwin"
+    cxx = (
+        (shutil.which("clang++") or shutil.which("g++"))
+        if is_macos
+        else (shutil.which("g++") or shutil.which("clang++"))
+    )
     if cxx is None:
         pytest.skip("No C++ compiler found")
 
@@ -33,6 +40,12 @@ def test_cpp_asan_ubsan_stress_harness(tmp_path: Path):
         "-o",
         str(bin_path),
     ]
-    subprocess.run(cmd, check=True, capture_output=True, text=True)
-    proc = subprocess.run([str(bin_path)], check=True, capture_output=True, text=True)
+    build = subprocess.run(cmd, capture_output=True, text=True)
+    assert build.returncode == 0, f"ASan build failed:\n{build.stdout}\n{build.stderr}"
+
+    env = dict(os.environ)
+    if is_macos:
+        env["MallocNanoZone"] = "0"
+    proc = subprocess.run([str(bin_path)], capture_output=True, text=True, env=env)
+    assert proc.returncode == 0, f"ASan harness failed ({proc.returncode}):\n{proc.stdout}\n{proc.stderr}"
     assert "ALL C++ ASAN/UBSAN HARNESS CHECKS PASSED!" in proc.stdout

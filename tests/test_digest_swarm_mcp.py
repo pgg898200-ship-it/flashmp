@@ -89,12 +89,16 @@ def test_mcp_server_stdio_jsonrpc():
         },
     ]
     payload = "\n".join(json.dumps(r) for r in reqs) + "\n"
+    import os
+
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(ROOT / "src")
     proc = subprocess.run(
         [sys.executable, "-m", "flashmp.mcp_server"],
         input=payload,
         text=True,
         capture_output=True,
-        env={"PYTHONPATH": str(ROOT / "src")},
+        env=env,
         timeout=15,
         check=True,
     )
@@ -108,7 +112,10 @@ def test_mcp_server_stdio_jsonrpc():
 
 
 def test_cli_demo_and_help():
-    env = {"PYTHONPATH": str(ROOT / "src")}
+    import os
+
+    env = dict(os.environ)
+    env["PYTHONPATH"] = str(ROOT / "src")
     out_help = subprocess.check_output(
         [sys.executable, "-m", "flashmp.cli", "--help"],
         env=env,
