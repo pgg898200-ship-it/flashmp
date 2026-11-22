@@ -1,0 +1,166 @@
+{
+  "timestamp_utc": "2026-11-22T18:42:13.371509+00:00",
+  "environment": {
+    "python": "3.12.16",
+    "platform": "Linux-6.18.57-x86_64-with-glibc2.39",
+    "machine": "x86_64",
+    "cpu_count": 2,
+    "flashmp_version": "0.1.0",
+    "flashmp_isa": "AVX2+FMA",
+    "stumpy_version": "1.14.1",
+    "pyscamp_version": "dev",
+    "ruptures_version": "v1.1.10",
+    "numpy_version": "2.5.5"
+  },
+  "cold_start_ms": {
+    "flashmp_import_only": 0.7795350011292612,
+    "flashmp_first_call": 42.476005999560584,
+    "pyscamp_first_call": 33.18314900025143,
+    "stumpy_first_call": 41906.05894200053
+  },
+  "batch_self_join": [
+    {
+      "N": 4096,
+      "m": 64,
+      "threads": 2,
+      "flashmp_ms": 3.295,
+      "flashmp_1t_ms": 4.679,
+      "pyscamp_ms": 18.011,
+      "stumpy_ms": 45.507,
+      "speedup_vs_stumpy": 13.81,
+      "speedup_vs_pyscamp": 5.47,
+      "max_err_vs_stumpy": 7.629452625224076e-13,
+      "max_err_vs_pyscamp": 1.1230808902862321e-06
+    },
+    {
+      "N": 16384,
+      "m": 64,
+      "threads": 2,
+      "flashmp_ms": 38.467,
+      "flashmp_1t_ms": 56.318,
+      "pyscamp_ms": 194.208,
+      "stumpy_ms": 565.039,
+      "speedup_vs_stumpy": 14.69,
+      "speedup_vs_pyscamp": 5.05,
+      "max_err_vs_stumpy": 2.9611868512802175e-12,
+      "max_err_vs_pyscamp": 1.5852039869646006e-06
+    },
+    {
+      "N": 32768,
+      "m": 64,
+      "threads": 2,
+      "flashmp_ms": 119.472,
+      "flashmp_1t_ms": 212.026,
+      "pyscamp_ms": 743.497,
+      "stumpy_ms": 2199.613,
+      "speedup_vs_stumpy": 18.41,
+      "speedup_vs_pyscamp": 6.22,
+      "max_err_vs_stumpy": 3.665512338102417e-12,
+      "max_err_vs_pyscamp": 1.6637516768724936e-06
+    }
+  ],
+  "batch_ab_join": {
+    "NA": 32768,
+    "NB": 4096,
+    "m": 64,
+    "threads": 2,
+    "flashmp_ms": 37.349,
+    "pyscamp_ms": 101.379,
+    "stumpy_ms": 481.193,
+    "speedup_vs_stumpy": 12.88,
+    "speedup_vs_pyscamp": 2.71,
+    "max_err_vs_stumpy": 3.1468161409975437e-12
+  },
+  "multivariate_mstump": [
+    {
+      "D": 4,
+      "N": 4096,
+      "m": 64,
+      "threads": 2,
+      "flashmp_ms": 39.138,
+      "stumpy_ms": 1888.58,
+      "speedup_vs_stumpy": 48.25,
+      "max_err_vs_stumpy": 1.2259526727120829e-11
+    },
+    {
+      "D": 8,
+      "N": 8192,
+      "m": 64,
+      "threads": 2,
+      "flashmp_ms": 248.462,
+      "stumpy_ms": 12079.351,
+      "speedup_vs_stumpy": 48.62,
+      "max_err_vs_stumpy": 1.234221613799491e-10
+    }
+  ],
+  "streaming_egress": [
+    {
+      "W": 1024,
+      "m": 64,
+      "flashmp_full_us_per_tick": 3.14,
+      "flashmp_full_pyloop_us_per_tick": 7.77,
+      "flashmp_causal_us_per_tick": 1.54,
+      "stumpy_stumpi_us_per_tick": 519.86,
+      "speedup_full_vs_stumpy": 165.7,
+      "speedup_pyloop_vs_stumpy": 66.9,
+      "speedup_causal_vs_stumpy": 337.7,
+      "flashmp_egress_max_err": 2.184918912462308e-13,
+      "stumpy_egress_max_err": 1.5699951071764136
+    },
+    {
+      "W": 4096,
+      "m": 64,
+      "flashmp_full_us_per_tick": 7.31,
+      "flashmp_full_pyloop_us_per_tick": 12.0,
+      "flashmp_causal_us_per_tick": 3.16,
+      "stumpy_stumpi_us_per_tick": 506.09,
+      "speedup_full_vs_stumpy": 69.2,
+      "speedup_pyloop_vs_stumpy": 42.2,
+      "speedup_causal_vs_stumpy": 160.3,
+      "flashmp_egress_max_err": 3.8458125573015423e-13,
+      "stumpy_egress_max_err": 1.1372451698182018
+    },
+    {
+      "W": 16384,
+      "m": 64,
+      "flashmp_full_us_per_tick": 31.65,
+      "flashmp_full_pyloop_us_per_tick": 41.7,
+      "flashmp_causal_us_per_tick": 9.52,
+      "stumpy_stumpi_us_per_tick": 798.4,
+      "speedup_full_vs_stumpy": 25.2,
+      "speedup_pyloop_vs_stumpy": 19.1,
+      "speedup_causal_vs_stumpy": 83.9,
+      "flashmp_egress_max_err": 1.7132961716015416e-12,
+      "stumpy_egress_max_err": 1.0214081085572353
+    }
+  ],
+  "high_dc_stability": {
+    "dc_offset": 10000000000.0,
+    "N": 2048,
+    "m": 64,
+    "flashmp_max_err": 4.646751412762384e-06,
+    "pyscamp_max_err": 0.0002506940859205997,
+    "stumpy_max_err": 0.0021879121176886507,
+    "transient_spike_1e10_motif_err": {
+      "flashmp": 2.0324959628949886e-16,
+      "pyscamp": NaN,
+      "stumpy": 0.0
+    }
+  },
+  "regime_segmentation": {
+    "N": 4000,
+    "true_changepoint": 2000,
+    "flashmp_floss_ms": 4.446,
+    "flashmp_detected_cp": 1976,
+    "flashmp_abs_err_ticks": 24,
+    "ruptures_pelt_rbf_ms": 41371.756,
+    "ruptures_detected_cps": [
+      50,
+      100,
+      150,
+      200,
+      250
+    ],
+    "speedup_vs_ruptures_rbf": 9305.17
+  }
+}

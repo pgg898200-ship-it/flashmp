@@ -1,0 +1,44 @@
+{
+  "timestamp_utc": "2026-11-22T18:46:36.438608+00:00",
+  "firehose_scaling": [
+    {
+      "channels": 64,
+      "live_ticks": 120,
+      "elapsed_ms": 55.33,
+      "channel_ticks_per_sec": 138801.4,
+      "us_per_channel_tick": 7.2,
+      "fault_recall": 1.0,
+      "tp_found": 4,
+      "total_faults": 4,
+      "loud_distractor_false_positives": 0,
+      "brief_tokens": 84,
+      "order_invariant_16_shuffles": true
+    },
+    {
+      "channels": 256,
+      "live_ticks": 120,
+      "elapsed_ms": 233.3,
+      "channel_ticks_per_sec": 131676.7,
+      "us_per_channel_tick": 7.59,
+      "fault_recall": 1.0,
+      "tp_found": 4,
+      "total_faults": 4,
+      "loud_distractor_false_positives": 0,
+      "brief_tokens": 105,
+      "order_invariant_16_shuffles": true
+    },
+    {
+      "channels": 1024,
+      "live_ticks": 120,
+      "elapsed_ms": 1184.5,
+      "channel_ticks_per_sec": 103740.2,
+      "us_per_channel_tick": 9.64,
+      "fault_recall": 1.0,
+      "tp_found": 4,
+      "total_faults": 4,
+      "loud_distractor_false_positives": 0,
+      "brief_tokens": 119,
+      "order_invariant_16_shuffles": true
+    }
+  ]
+}
