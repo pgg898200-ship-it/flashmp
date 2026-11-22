@@ -1,11 +1,11 @@
 {
-  "timestamp_utc": "2026-11-22T18:42:13.371509+00:00",
+  "timestamp_utc": "2026-11-22T22:28:19.435175+00:00",
   "environment": {
     "python": "3.12.16",
     "platform": "Linux-6.18.57-x86_64-with-glibc2.39",
     "machine": "x86_64",
     "cpu_count": 2,
-    "flashmp_version": "0.1.0",
+    "flashmp_version": "0.2.0",
     "flashmp_isa": "AVX2+FMA",
     "stumpy_version": "1.14.1",
     "pyscamp_version": "dev",
@@ -13,50 +13,50 @@
     "numpy_version": "2.5.5"
   },
   "cold_start_ms": {
-    "flashmp_import_only": 0.7795350011292612,
-    "flashmp_first_call": 42.476005999560584,
-    "pyscamp_first_call": 33.18314900025143,
-    "stumpy_first_call": 41906.05894200053
+    "flashmp_import_only": 0.573401997826295,
+    "flashmp_first_call": 43.21924900068552,
+    "pyscamp_first_call": 30.024417999811703,
+    "stumpy_first_call": 38025.096089000726
   },
   "batch_self_join": [
     {
       "N": 4096,
       "m": 64,
       "threads": 2,
-      "flashmp_ms": 3.295,
-      "flashmp_1t_ms": 4.679,
-      "pyscamp_ms": 18.011,
-      "stumpy_ms": 45.507,
-      "speedup_vs_stumpy": 13.81,
-      "speedup_vs_pyscamp": 5.47,
-      "max_err_vs_stumpy": 7.629452625224076e-13,
+      "flashmp_ms": 5.301,
+      "flashmp_1t_ms": 6.73,
+      "pyscamp_ms": 17.083,
+      "stumpy_ms": 60.005,
+      "speedup_vs_stumpy": 11.32,
+      "speedup_vs_pyscamp": 3.22,
+      "max_err_vs_stumpy": 9.316991622654314e-13,
       "max_err_vs_pyscamp": 1.1230808902862321e-06
     },
     {
       "N": 16384,
       "m": 64,
       "threads": 2,
-      "flashmp_ms": 38.467,
-      "flashmp_1t_ms": 56.318,
-      "pyscamp_ms": 194.208,
-      "stumpy_ms": 565.039,
-      "speedup_vs_stumpy": 14.69,
-      "speedup_vs_pyscamp": 5.05,
-      "max_err_vs_stumpy": 2.9611868512802175e-12,
-      "max_err_vs_pyscamp": 1.5852039869646006e-06
+      "flashmp_ms": 39.611,
+      "flashmp_1t_ms": 68.638,
+      "pyscamp_ms": 275.165,
+      "stumpy_ms": 576.138,
+      "speedup_vs_stumpy": 14.54,
+      "speedup_vs_pyscamp": 6.95,
+      "max_err_vs_stumpy": 2.951416888663516e-12,
+      "max_err_vs_pyscamp": 1.5852039638719617e-06
     },
     {
       "N": 32768,
       "m": 64,
       "threads": 2,
-      "flashmp_ms": 119.472,
-      "flashmp_1t_ms": 212.026,
-      "pyscamp_ms": 743.497,
-      "stumpy_ms": 2199.613,
-      "speedup_vs_stumpy": 18.41,
-      "speedup_vs_pyscamp": 6.22,
-      "max_err_vs_stumpy": 3.665512338102417e-12,
-      "max_err_vs_pyscamp": 1.6637516768724936e-06
+      "flashmp_ms": 87.332,
+      "flashmp_1t_ms": 146.205,
+      "pyscamp_ms": 767.631,
+      "stumpy_ms": 2377.481,
+      "speedup_vs_stumpy": 27.22,
+      "speedup_vs_pyscamp": 8.79,
+      "max_err_vs_stumpy": 3.6850522633358196e-12,
+      "max_err_vs_pyscamp": 1.663751715952344e-06
     }
   ],
   "batch_ab_join": {
@@ -64,12 +64,12 @@
     "NB": 4096,
     "m": 64,
     "threads": 2,
-    "flashmp_ms": 37.349,
-    "pyscamp_ms": 101.379,
-    "stumpy_ms": 481.193,
-    "speedup_vs_stumpy": 12.88,
-    "speedup_vs_pyscamp": 2.71,
-    "max_err_vs_stumpy": 3.1468161409975437e-12
+    "flashmp_ms": 31.839,
+    "pyscamp_ms": 103.453,
+    "stumpy_ms": 502.801,
+    "speedup_vs_stumpy": 15.79,
+    "speedup_vs_pyscamp": 3.25,
+    "max_err_vs_stumpy": 3.0944136142352363e-12
   },
   "multivariate_mstump": [
     {
@@ -77,19 +77,19 @@
       "N": 4096,
       "m": 64,
       "threads": 2,
-      "flashmp_ms": 39.138,
-      "stumpy_ms": 1888.58,
-      "speedup_vs_stumpy": 48.25,
-      "max_err_vs_stumpy": 1.2259526727120829e-11
+      "flashmp_ms": 29.033,
+      "stumpy_ms": 1742.624,
+      "speedup_vs_stumpy": 60.02,
+      "max_err_vs_stumpy": 1.226574397605873e-11
     },
     {
       "D": 8,
       "N": 8192,
       "m": 64,
       "threads": 2,
-      "flashmp_ms": 248.462,
-      "stumpy_ms": 12079.351,
-      "speedup_vs_stumpy": 48.62,
+      "flashmp_ms": 154.914,
+      "stumpy_ms": 10609.652,
+      "speedup_vs_stumpy": 68.49,
       "max_err_vs_stumpy": 1.234221613799491e-10
     }
   ],
@@ -97,50 +97,50 @@
     {
       "W": 1024,
       "m": 64,
-      "flashmp_full_us_per_tick": 3.14,
-      "flashmp_full_pyloop_us_per_tick": 7.77,
-      "flashmp_causal_us_per_tick": 1.54,
-      "stumpy_stumpi_us_per_tick": 519.86,
-      "speedup_full_vs_stumpy": 165.7,
-      "speedup_pyloop_vs_stumpy": 66.9,
-      "speedup_causal_vs_stumpy": 337.7,
+      "flashmp_full_us_per_tick": 2.54,
+      "flashmp_full_pyloop_us_per_tick": 3.63,
+      "flashmp_causal_us_per_tick": 1.27,
+      "stumpy_stumpi_us_per_tick": 454.52,
+      "speedup_full_vs_stumpy": 179.1,
+      "speedup_pyloop_vs_stumpy": 125.2,
+      "speedup_causal_vs_stumpy": 358.5,
       "flashmp_egress_max_err": 2.184918912462308e-13,
-      "stumpy_egress_max_err": 1.5699951071764136
+      "stumpy_egress_max_err": 1.569995107176406
     },
     {
       "W": 4096,
       "m": 64,
-      "flashmp_full_us_per_tick": 7.31,
-      "flashmp_full_pyloop_us_per_tick": 12.0,
-      "flashmp_causal_us_per_tick": 3.16,
-      "stumpy_stumpi_us_per_tick": 506.09,
-      "speedup_full_vs_stumpy": 69.2,
-      "speedup_pyloop_vs_stumpy": 42.2,
-      "speedup_causal_vs_stumpy": 160.3,
-      "flashmp_egress_max_err": 3.8458125573015423e-13,
-      "stumpy_egress_max_err": 1.1372451698182018
+      "flashmp_full_us_per_tick": 4.59,
+      "flashmp_full_pyloop_us_per_tick": 5.9,
+      "flashmp_causal_us_per_tick": 3.01,
+      "stumpy_stumpi_us_per_tick": 498.31,
+      "speedup_full_vs_stumpy": 108.7,
+      "speedup_pyloop_vs_stumpy": 84.5,
+      "speedup_causal_vs_stumpy": 165.7,
+      "flashmp_egress_max_err": 4.654054919228656e-13,
+      "stumpy_egress_max_err": 1.1372451698181245
     },
     {
       "W": 16384,
       "m": 64,
-      "flashmp_full_us_per_tick": 31.65,
-      "flashmp_full_pyloop_us_per_tick": 41.7,
-      "flashmp_causal_us_per_tick": 9.52,
-      "stumpy_stumpi_us_per_tick": 798.4,
-      "speedup_full_vs_stumpy": 25.2,
-      "speedup_pyloop_vs_stumpy": 19.1,
-      "speedup_causal_vs_stumpy": 83.9,
-      "flashmp_egress_max_err": 1.7132961716015416e-12,
-      "stumpy_egress_max_err": 1.0214081085572353
+      "flashmp_full_us_per_tick": 12.06,
+      "flashmp_full_pyloop_us_per_tick": 13.34,
+      "flashmp_causal_us_per_tick": 7.8,
+      "stumpy_stumpi_us_per_tick": 711.98,
+      "speedup_full_vs_stumpy": 59.1,
+      "speedup_pyloop_vs_stumpy": 53.4,
+      "speedup_causal_vs_stumpy": 91.2,
+      "flashmp_egress_max_err": 3.730349362740526e-13,
+      "stumpy_egress_max_err": 1.021408108557246
     }
   ],
   "high_dc_stability": {
     "dc_offset": 10000000000.0,
     "N": 2048,
     "m": 64,
-    "flashmp_max_err": 4.646751412762384e-06,
-    "pyscamp_max_err": 0.0002506940859205997,
-    "stumpy_max_err": 0.0021879121176886507,
+    "flashmp_max_err": 4.646751406545135e-06,
+    "pyscamp_max_err": 0.00025069408616862354,
+    "stumpy_max_err": 0.0021879121175938376,
     "transient_spike_1e10_motif_err": {
       "flashmp": 2.0324959628949886e-16,
       "pyscamp": NaN,
@@ -150,10 +150,10 @@
   "regime_segmentation": {
     "N": 4000,
     "true_changepoint": 2000,
-    "flashmp_floss_ms": 4.446,
+    "flashmp_floss_ms": 3.837,
     "flashmp_detected_cp": 1976,
     "flashmp_abs_err_ticks": 24,
-    "ruptures_pelt_rbf_ms": 41371.756,
+    "ruptures_pelt_rbf_ms": 38076.474,
     "ruptures_detected_cps": [
       50,
       100,
@@ -161,6 +161,6 @@
       200,
       250
     ],
-    "speedup_vs_ruptures_rbf": 9305.17
+    "speedup_vs_ruptures_rbf": 9924.34
   }
 }

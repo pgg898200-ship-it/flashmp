@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flashmp"
-version = "0.1.0"
-description = "Find repeated shapes and unusual windows in numeric time series with exact CPU matrix profiles, bounded-window streaming, and cross-series search."
+version = "0.2.0"
+description = "Find repeated shapes and unusual windows in numeric time series with exact CPU matrix profiles, bounded-window streaming, cross-series search, and reversible agent digests."
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.10"
@@ -47,8 +47,12 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 flashmp = [
+    "SKILL.md",
+    "_fast*.so",
+    "_fast*.pyd",
     "_csrc/flashmp.hpp",
     "_csrc/flashmp.cpp",
+    "_csrc/_fast.cpp",
     "_csrc/libflashmp.so",
     "_csrc/libflashmp.dylib",
     "_csrc/flashmp.dll",

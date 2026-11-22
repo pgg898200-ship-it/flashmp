@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 _EXPORTS: dict[str, tuple[str, str]] = {
     # Native library info
@@ -37,6 +37,13 @@ _EXPORTS: dict[str, tuple[str, str]] = {
     "SwarmMonitor": (".swarm", "SwarmMonitor"),
     "SwarmAlert": (".swarm", "SwarmAlert"),
     "AlertLedger": (".swarm", "AlertLedger"),
+    # AI agent & DataFrame integrations
+    "openai_tools": (".integrations", "openai_tools"),
+    "anthropic_tools": (".integrations", "anthropic_tools"),
+    "AgentToolkit": (".integrations", "AgentToolkit"),
+    "mcp_client_config": (".integrations", "mcp_client_config"),
+    "install_skill": (".integrations", "install_skill"),
+    "extract_series": (".integrations", "extract_series"),
 }
 
 __all__ = [
@@ -65,6 +72,12 @@ __all__ = [
     "SwarmMonitor",
     "SwarmAlert",
     "AlertLedger",
+    "openai_tools",
+    "anthropic_tools",
+    "AgentToolkit",
+    "mcp_client_config",
+    "install_skill",
+    "extract_series",
     "version",
     "simd_isa",
 ]

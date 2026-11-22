@@ -1,6 +1,6 @@
 # FlashMP vs pyscamp (SCAMP): CPU SIMD, Numerical Stability & Streaming Comparison
 
-> **Headline (`2026-11-22`, x86-64 AVX2+FMA, 2 vCPU):** On CPU, **FlashMP `0.1.0`** runs exact float64 batch self-join **`5.05×–6.22×`** faster than `pyscamp` (SCAMP `4.0.3`), runs bidirectional AB-join **`2.71×`** faster (computing both directions vs `pyscamp`'s one direction), achieves **`54×`** higher accuracy at `DC=1e10`, recovers exact motifs (`2.03e-16`) after transient `1e10` spikes where `pyscamp` returns **`NaN`**, and adds exact bounded-window streaming (`RingMP`), multivariate `mSTUMP`, FLOSS regime segmentation, reversible `-99.3%` token digests, `SwarmMonitor`, and a zero-dependency MCP server.
+> **Headline (`2026-11-22`, x86-64 AVX2+FMA, 2 vCPU):** On CPU, **FlashMP `0.2.0`** runs exact float64-verified batch self-join **`3.22×–8.79×`** faster than `pyscamp` (SCAMP fp64) via provably-sound 48-wide float32-screened AVX2+FMA kernels, runs bidirectional AB-join **`3.25×`** faster (computing both directions vs `pyscamp`'s one direction), achieves **`54×`** higher accuracy at `DC=1e10`, recovers exact motifs (`2.03e-16`) after transient `1e10` spikes where `pyscamp` returns **`NaN`**, and adds exact bounded-window streaming (`RingMP`), multivariate `mSTUMP` (`68.5×` vs STUMPY), FLOSS regime segmentation, reversible `-99.3%` to `-99.7%` token digests, OpenAI/Anthropic/MCP toolkits, and `SwarmMonitor`.
 
 ---
 
@@ -8,24 +8,24 @@
 
 Measured live on matched 2-vCPU x86-64 AVX2+FMA silicon (`benchmarks/bench_vs_incumbents.py`):
 
-| Benchmark | **FlashMP `0.1.0`** | `pyscamp` (`4.0.3`, fp64) | FlashMP Edge |
+| Benchmark | **FlashMP `0.2.0`** | `pyscamp` (fp64) | FlashMP Edge |
 |---|---:|---:|---|
-| Batch Self-Join (`N=4,096, m=64, 2T`) | **`3.29 ms`** | `18.01 ms` | **`5.47×`** faster |
-| Batch Self-Join (`N=16,384, m=64, 2T`) | **`38.47 ms`** | `194.21 ms` | **`5.05×`** faster |
-| Batch Self-Join (`N=32,768, m=64, 2T`) | **`119.47 ms`** | `743.50 ms` | **`6.22×`** faster |
-| AB-Join (`32,768 × 4,096, m=64, 2T`) | **`37.35 ms`** *(2-way)* | `101.38 ms` *(1-way)* | **`2.71×`** faster *(with 2× outputs)* |
-| Cold import + first `N=4,096` self-join | `42.5 ms` | **`33.2 ms`** | `pyscamp` slightly faster on cold NumPy call; FlashMP bare `import` is `0.78 ms` |
+| Batch Self-Join (`N=4,096, m=64, 2T`) | **`5.30 ms`** | `17.08 ms` | **`3.22×`** faster |
+| Batch Self-Join (`N=16,384, m=64, 2T`) | **`39.61 ms`** | `275.17 ms` | **`6.95×`** faster |
+| Batch Self-Join (`N=32,768, m=64, 2T`) | **`87.33 ms`** | `767.63 ms` | **`8.79×`** faster (`3.69e-12` exact err) |
+| AB-Join (`32,768 × 4,096, m=64, 2T`) | **`31.84 ms`** *(2-way)* | `103.45 ms` *(1-way)* | **`3.25×`** faster *(with 2× outputs)* |
+| Cold import + first `N=4,096` self-join | `43.2 ms` | **`30.0 ms`** | `pyscamp` slightly faster on cold NumPy call; FlashMP bare `import` is `0.57 ms` |
 | High-DC Stability (`DC=1e10, N=2,048`) | **`4.65e-6`** max err | `2.51e-4` max err | **`54×`** more accurate |
 | Post-`1e10`-Spike Exact Motif (True = `0.0`) | **`2.03e-16`** | **`NaN`** | Spike-drop HWM re-anchoring prevents cancellation blowup |
-| Multivariate `mSTUMP` | **`248.5 ms`** `(8, 8,192)` | Unsupported | `48.6×` faster than STUMPY |
-| Bounded-Window Streaming (`RingMP`) | **`1.54–3.14 µs/tick`** | Unsupported | Exact egress (`2.2e-13` err) + anytime-valid E-values |
-| FLOSS Regimes / Digest / Swarm / MCP | **Included (0 deps)** | Unsupported | `-99.31%` tokens, lossless drill-down, native stdio MCP |
+| Multivariate `mSTUMP` | **`154.9 ms`** `(8, 8,192)` | Unsupported | `68.5×` faster than STUMPY |
+| Bounded-Window Streaming (`RingMP`) | **`1.27–2.54 µs/tick`** (`W=1,024`) | Unsupported | Exact egress (`2.2e-13` err) + anytime-valid E-values |
+| FLOSS Regimes / Digest / Swarm / AI Toolkits | **Included (0 deps)** | Unsupported | `-99.47%` 5-domain tokens, lossless drill-down, OpenAI/Anthropic/MCP |
 
 ---
 
 ## Why FlashMP Outperforms `pyscamp` on CPU & Under Extreme Outliers
 
-1. **16-Diagonal Register Blocking + 512B Slab Staggering:** FlashMP packs 16 consecutive diagonals (`4 × __m256d`) inside L1-resident tiles (`192 × 256`) with 512-byte staggered slabs (`mod 4096 B`) to avoid 4K-aliasing stalls, plus combined-mask write elision (zero L1 stores on `>99.5%` of strips).
+1. **48-Wide Provably-Sound Float32-Screened Exact Float64 Engine:** On clean tiles (verified in $O(1)$ via per-block `StatBlock` scale-ratio bounds), FlashMP carries **48 consecutive diagonals** (`6 × __m256`) in float32 — re-anchored from exact float64 at tile tops — screening against provably sound lower-bounded float32 thresholds (`best - delta_tile`) with deferred exact float64 candidate verification (`< 4e-12` error). Any tile with drops, NaN/Inf/flats, extreme scale ratios, or `delta_tile > 0.025f` transparently executes the 16-wide exact float64 AVX2+FMA kernel.
 2. **Anchor-Shifted + Spike-Drop HWM Recurrence:** Both `pyscamp` and FlashMP use the SCAMP centered `df`/`dg` recurrence. However, `pyscamp` does not perform global DC anchor removal or norm-drop re-anchoring along carried diagonals:
    - At `DC = 1e10`, FlashMP's anchor shift cuts error by **`54×`** (`4.65e-6` vs `2.51e-4`).
    - When two transient `1e10` spikes appear in unit-scale telemetry, carried SCAMP covariance surges to $O(10^{20})$ and leaves $O(10^4)$ cancellation garbage after the spike exits — causing `pyscamp` (`precision="double"`) to output **`NaN`** on an exact downstream motif, whereas FlashMP's $O(1)$-prefix-guarded spike-drop re-anchoring recovers **`2.03e-16`** with zero slowdown on clean data.

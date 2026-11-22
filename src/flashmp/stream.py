@@ -17,6 +17,7 @@ from ._native import (
     _default_excl_zone,
     _get_numpy,
     _use_numpy,
+    get_fast,
     get_lib,
 )
 
@@ -69,6 +70,8 @@ class StreamMP:
     """Exact bounded-window streaming Matrix Profile (RingMP) with Ville E-Process alerting."""
 
     __slots__ = (
+        "_fast",
+        "_fast_update",
         "_lib",
         "_destroy_fn",
         "_update_fn",
@@ -115,25 +118,47 @@ class StreamMP:
                 raise ValueError(f"excl_zone must be >= 0, got {ez}")
         else:
             ez = -1
-        lib = get_lib()
-        ptr = lib.fmp_stream_create(
-            m_int,
-            win_int,
-            ez,
-            1 if egress else 0,
-            alpha_f,
-            1 if track_full_mp else 0,
-        )
-        if not ptr:
-            raise RuntimeError("fmp_stream_create failed to allocate native stream state")
 
-        self._lib = lib
-        self._destroy_fn = lib.fmp_stream_destroy
-        self._update_fn = lib.fmp_stream_update
-        self._ptr: int | None = int(ptr)
-        self._c_ptr = ctypes.c_void_p(self._ptr)
-        self._c_res = CTickResult()
-        self._c_res_ref = ctypes.byref(self._c_res)
+        fast = get_fast()
+        if fast is not None:
+            self._fast: Any = fast.FastStream(
+                m_int,
+                win_int,
+                ez,
+                bool(egress),
+                alpha_f,
+                bool(track_full_mp),
+            )
+            self._fast_update = self._fast.update
+            self._lib = None
+            self._destroy_fn = None
+            self._update_fn = None
+            self._ptr: int | None = 1
+            self._c_ptr = None
+            self._c_res = None
+            self._c_res_ref = None
+        else:
+            lib = get_lib()
+            ptr = lib.fmp_stream_create(
+                m_int,
+                win_int,
+                ez,
+                1 if egress else 0,
+                alpha_f,
+                1 if track_full_mp else 0,
+            )
+            if not ptr:
+                raise RuntimeError("fmp_stream_create failed to allocate native stream state")
+            self._fast = None
+            self._fast_update = None
+            self._lib = lib
+            self._destroy_fn = lib.fmp_stream_destroy
+            self._update_fn = lib.fmp_stream_update
+            self._ptr = int(ptr)
+            self._c_ptr = ctypes.c_void_p(self._ptr)
+            self._c_res = CTickResult()
+            self._c_res_ref = ctypes.byref(self._c_res)
+
         self._m = m_int
         self._window = win_int
         self._excl_zone = _default_excl_zone(m_int) if excl_zone is None else ez
@@ -145,7 +170,7 @@ class StreamMP:
         self._last_tick: TickResult | None = None
         self._prefer_numpy: bool = False
 
-    def _require_open(self) -> ctypes.c_void_p:
+    def _require_open(self) -> Any:
         if self._ptr is None:
             raise RuntimeError("StreamMP has been closed")
         return self._c_ptr
@@ -155,9 +180,15 @@ class StreamMP:
         ptr = getattr(self, "_ptr", None)
         if ptr is not None:
             self._ptr = None
-            destroy = getattr(self, "_destroy_fn", None)
-            if destroy is not None:
-                destroy(ctypes.c_void_p(ptr))
+            fast = getattr(self, "_fast", None)
+            if fast is not None:
+                fast.close()
+                self._fast = None
+                self._fast_update = None
+            else:
+                destroy = getattr(self, "_destroy_fn", None)
+                if destroy is not None:
+                    destroy(ctypes.c_void_p(ptr))
 
     def __del__(self) -> None:
         try:
@@ -198,17 +229,22 @@ class StreamMP:
 
     def init(self, data: Any) -> StreamMP:
         """Ingest an initial historical batch into the stream."""
-        c_ptr = self._require_open()
+        self._require_open()
         ptr, n, owner, is_np = _as_c_double_array(data)
         if is_np:
             self._prefer_numpy = True
         if n == 0:
             return self
         if n > 1:
-            rc = self._lib.fmp_stream_init(c_ptr, ptr, n - 1)
-            if rc != 0:
-                del owner
-                raise RuntimeError(f"fmp_stream_init failed with error code {rc}")
+            if self._fast is not None:
+                mv = memoryview(owner)
+                self._fast.init(mv[:-1])
+                mv.release()
+            else:
+                rc = self._lib.fmp_stream_init(self._c_ptr, ptr, n - 1)
+                if rc != 0:
+                    del owner
+                    raise RuntimeError(f"fmp_stream_init failed with error code {rc}")
         last_val = float(owner[n - 1])
         del owner
         self.update(last_val)
@@ -220,20 +256,24 @@ class StreamMP:
             raise RuntimeError("StreamMP has been closed")
         if isinstance(x, bool):
             raise TypeError("Tick value x must be a real number, not bool")
-        rc = self._update_fn(self._c_ptr, float(x), self._c_res_ref)
-        if rc != 0:
-            raise RuntimeError(f"fmp_stream_update failed with error code {rc}")
-        r = self._c_res
-        tick = TickResult(
-            gid=int(r.gid),
-            left_dist=float(r.left_dist),
-            left_idx=int(r.left_idx),
-            discord_z=float(r.discord_z),
-            p_value=float(r.p_value),
-            e_value=float(r.e_value),
-            is_alert=bool(r.is_alert),
-            n_repaired=int(r.n_repaired),
-        )
+        if self._fast_update is not None:
+            gid, ld, li, dz, pv, ev, al, nr = self._fast_update(float(x))
+            tick = TickResult(gid, ld, li, dz, pv, ev, al, nr)
+        else:
+            rc = self._update_fn(self._c_ptr, float(x), self._c_res_ref)
+            if rc != 0:
+                raise RuntimeError(f"fmp_stream_update failed with error code {rc}")
+            r = self._c_res
+            tick = TickResult(
+                gid=int(r.gid),
+                left_dist=float(r.left_dist),
+                left_idx=int(r.left_idx),
+                discord_z=float(r.discord_z),
+                p_value=float(r.p_value),
+                e_value=float(r.e_value),
+                is_alert=bool(r.is_alert),
+                n_repaired=int(r.n_repaired),
+            )
         self._last_e_value = tick.e_value
         self._last_is_alert = tick.is_alert
         self._last_tick = tick
@@ -241,7 +281,7 @@ class StreamMP:
 
     def update_batch(self, xs: Any) -> BatchTickResult:
         """Ingest a batch of ticks in a single C++ loop with minimal Python overhead."""
-        c_ptr = self._require_open()
+        self._require_open()
         ptr, count, owner, is_np = _as_c_double_array(xs)
         if is_np:
             self._prefer_numpy = True
@@ -254,12 +294,17 @@ class StreamMP:
 
         if count > 0:
             if count > 1:
-                rc = self._lib.fmp_stream_update_batch(
-                    c_ptr, ptr, count - 1, ld_ptr, li_ptr, ev_ptr, al_ptr
-                )
-                if rc != 0:
-                    del owner
-                    raise RuntimeError(f"fmp_stream_update_batch failed with error code {rc}")
+                if self._fast is not None:
+                    mv = memoryview(owner)
+                    self._fast.update_batch(mv[:-1], ld, li, ev, al)
+                    mv.release()
+                else:
+                    rc = self._lib.fmp_stream_update_batch(
+                        self._c_ptr, ptr, count - 1, ld_ptr, li_ptr, ev_ptr, al_ptr
+                    )
+                    if rc != 0:
+                        del owner
+                        raise RuntimeError(f"fmp_stream_update_batch failed with error code {rc}")
             last_val = float(owner[count - 1])
             del owner
             last_t = self.update(last_val)
@@ -273,13 +318,17 @@ class StreamMP:
 
     @property
     def active_len(self) -> int:
-        c_ptr = self._require_open()
-        return int(self._lib.fmp_stream_active_len(c_ptr))
+        self._require_open()
+        if self._fast is not None:
+            return int(self._fast.active_len())
+        return int(self._lib.fmp_stream_active_len(self._c_ptr))
 
     @property
     def gid_min(self) -> int:
-        c_ptr = self._require_open()
-        return int(self._lib.fmp_stream_gid_min(c_ptr))
+        self._require_open()
+        if self._fast is not None:
+            return int(self._fast.gid_min())
+        return int(self._lib.fmp_stream_gid_min(self._c_ptr))
 
     @property
     def e_value(self) -> float:
@@ -295,8 +344,8 @@ class StreamMP:
 
     def snapshot(self, relative_indices: bool = True) -> StreamSnapshot:
         """Copy the current active window's exact Full-MP and Left-MP."""
-        c_ptr = self._require_open()
-        active = int(self._lib.fmp_stream_active_len(c_ptr))
+        self._require_open()
+        active = self.active_len
         use_np = _use_numpy(self._prefer_numpy)
 
         mp, mp_ptr = _alloc_double(active, use_np)
@@ -305,16 +354,19 @@ class StreamMP:
         lidx, lidx_ptr = _alloc_int64(active, use_np)
 
         if active > 0:
-            rc = self._lib.fmp_stream_snapshot(
-                c_ptr,
-                1 if relative_indices else 0,
-                mp_ptr,
-                idx_ptr,
-                lmp_ptr,
-                lidx_ptr,
-            )
-            if rc != 0:
-                raise RuntimeError(f"fmp_stream_snapshot failed with error code {rc}")
+            if self._fast is not None:
+                self._fast.snapshot(bool(relative_indices), mp, idx, lmp, lidx)
+            else:
+                rc = self._lib.fmp_stream_snapshot(
+                    self._c_ptr,
+                    1 if relative_indices else 0,
+                    mp_ptr,
+                    idx_ptr,
+                    lmp_ptr,
+                    lidx_ptr,
+                )
+                if rc != 0:
+                    raise RuntimeError(f"fmp_stream_snapshot failed with error code {rc}")
         return StreamSnapshot(mp=mp, idx=idx, left_mp=lmp, left_idx=lidx)
 
     @property

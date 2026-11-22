@@ -1,12 +1,12 @@
 {
-  "timestamp_utc": "2026-11-22T18:46:34.135882+00:00",
+  "timestamp_utc": "2026-11-22T22:32:18.324697+00:00",
   "trials": 20,
   "series_length": 10000,
   "raw_tokens_mean": 18751.2,
   "flashmp_digest_tokens_mean": 129.3,
   "token_reduction_pct": 99.31,
   "compression_ratio_x": 145.0,
-  "flashmp_median_ms": 33.62,
+  "flashmp_median_ms": 33.48,
   "shape_anomaly_recall_top3": {
     "flashmp_digest": 1.0,
     "lttb_matched_tokens": 0.0,

@@ -55,6 +55,45 @@ def _normalize_input(
         names = list(channel_names) if channel_names else ["s0"]
         return [ch], names[:1], len(ch), False
 
+    # Zero-import duck-typed Pandas/Polars DataFrame or Series support
+    if not isinstance(T, (list, tuple)) and (
+        hasattr(T, "columns") or hasattr(T, "to_numpy") or hasattr(T, "to_list")
+    ):
+        from .integrations import (
+            _TIME_LIKE_COLUMNS,
+            _df_get_column,
+            _is_dataframe_like,
+            _is_numeric_column,
+            extract_series,
+        )
+
+        if _is_dataframe_like(T):
+            cols = list(T.columns)
+            if not cols:
+                raise ValueError("DataFrame has no columns")
+            numeric_cols = [c for c in cols if _is_numeric_column(_df_get_column(T, c))]
+            if not numeric_cols:
+                raise ValueError("No numeric column found in DataFrame")
+            if len(numeric_cols) >= 2 and str(numeric_cols[0]).strip().lower() in _TIME_LIKE_COLUMNS:
+                numeric_cols = numeric_cols[1:]
+            channels = [_to_double_array(extract_series(T, col)) for col in numeric_cols]
+            D = len(channels)
+            N = len(channels[0])
+            for col, ch in zip(numeric_cols, channels):
+                if len(ch) != N:
+                    raise ValueError(f"Column {col!r} length {len(ch)} != {N}")
+            names = list(channel_names) if channel_names else [str(c) for c in numeric_cols]
+            if len(names) < D:
+                names.extend(str(c) for c in numeric_cols[len(names) : D])
+            return channels, names[:D], N, D > 1
+
+        extracted = extract_series(T)
+        ch = _to_double_array(extracted)
+        s_name = getattr(T, "name", None)
+        default_name = str(s_name) if s_name else "s0"
+        names = list(channel_names) if channel_names else [default_name]
+        return [ch], names[:1], len(ch), False
+
     seq = list(T)
     if not seq:
         raise ValueError("Input time series must not be empty")

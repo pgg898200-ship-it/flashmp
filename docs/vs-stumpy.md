@@ -1,6 +1,6 @@
 # FlashMP vs STUMPY: Head-to-Head CPU & Streaming Comparison
 
-> **Headline (`2026-11-22`, x86-64 AVX2+FMA, 2 vCPU):** FlashMP `0.1.0` is a drop-in replacement for `STUMPY 1.14.1` (`stump`, `mstump`, `stumpi`, `abjoin`) that eliminates STUMPY's **41.9-second** Numba JIT cold start (**`987×`** faster first call), runs batch self-join **`13.8×–18.4×`** faster, accelerates multivariate `mSTUMP` by **`48.6×`**, streams bounded windows **`19×–338×`** faster while fixing `stumpy.stumpi(egress=True)`'s **`1.02–1.57`** stale-neighbor error, and improves `DC=1e10` accuracy by **`471×`**.
+> **Headline (`2026-11-22`, x86-64 AVX2+FMA, 2 vCPU):** FlashMP `0.2.0` is a drop-in replacement for `STUMPY 1.14.1` (`stump`, `mstump`, `stumpi`, `abjoin`) that eliminates STUMPY's **38.0-second** Numba JIT cold start (**`880×`** faster first call; **`0.57 ms`** bare import), runs batch self-join **`11.3×–27.2×`** faster, accelerates multivariate `mSTUMP` by **`60.0×–68.5×`**, streams bounded windows **`53×–358×`** faster (including **`53×–125×`** in a plain Python `for` loop via the zero-copy `_fast` C-API extension) while fixing `stumpy.stumpi(egress=True)`'s **`1.02–1.57`** stale-neighbor error, and improves `DC=1e10` accuracy by **`471×`**.
 
 ---
 
@@ -8,19 +8,19 @@
 
 All numbers measured live on identical inputs, matched thread counts (`2T`), and exact parity checks (`benchmarks/bench_vs_incumbents.py`):
 
-| Benchmark | **FlashMP `0.1.0`** | `STUMPY 1.14.1` | Speedup / Improvement | Max Abs Err |
+| Benchmark | **FlashMP `0.2.0`** | `STUMPY 1.14.1` | Speedup / Improvement | Max Abs Err |
 |---|---:|---:|---:|---:|
-| Cold `import` only | **`0.78 ms`** | — | **0 required deps** (vs ~109 MiB) | — |
-| Cold import + first `N=4,096` self-join | **`42.5 ms`** | `41,906.1 ms` | **`987×`** faster | `7.63e-13` |
-| Batch Self-Join (`N=4,096, m=64`) | **`3.29 ms`** | `45.51 ms` | **`13.81×`** faster | `7.63e-13` |
-| Batch Self-Join (`N=16,384, m=64`) | **`38.47 ms`** | `565.04 ms` | **`14.69×`** faster | `2.96e-12` |
-| Batch Self-Join (`N=32,768, m=64`) | **`119.47 ms`** | `2,199.61 ms` | **`18.41×`** faster | `3.67e-12` |
-| AB-Join (`32,768 × 4,096, m=64`) | **`37.35 ms`** *(2-way)* | `481.19 ms` *(1-way)* | **`12.88×`** faster | `3.15e-12` |
-| Multivariate `mSTUMP` (`D=4, N=4,096`) | **`39.14 ms`** | `1,888.58 ms` | **`48.25×`** faster | `1.23e-11` |
-| Multivariate `mSTUMP` (`D=8, N=8,192`) | **`248.46 ms`** | `12,079.35 ms` | **`48.62×`** faster | `1.23e-10` |
-| Streaming `W=1,024` (`egress=True`) | **`3.14 µs`** *(batch)* / **`7.77 µs`** *(py-loop)* / **`1.54 µs`** *(causal)* | `519.9 µs` | **`66.9×`–`337.7×`** faster | **`2.18e-13`** vs **`1.570`** |
-| Streaming `W=4,096` (`egress=True`) | **`7.31 µs`** *(batch)* / **`12.00 µs`** *(py-loop)* / **`3.16 µs`** *(causal)* | `506.1 µs` | **`42.2×`–`160.3×`** faster | **`3.85e-13`** vs **`1.137`** |
-| Streaming `W=16,384` (`egress=True`) | **`31.65 µs`** *(batch)* / **`41.70 µs`** *(py-loop)* / **`9.52 µs`** *(causal)* | `798.4 µs` | **`19.1×`–`83.9×`** faster | **`1.71e-12`** vs **`1.021`** |
+| Cold `import` only | **`0.57 ms`** | — | **0 required deps** (vs ~109 MiB) | — |
+| Cold import + first `N=4,096` self-join | **`43.2 ms`** | `38,025.1 ms` | **`880×`** faster | `9.32e-13` |
+| Batch Self-Join (`N=4,096, m=64`) | **`5.30 ms`** | `60.01 ms` | **`11.32×`** faster | `9.32e-13` |
+| Batch Self-Join (`N=16,384, m=64`) | **`39.61 ms`** | `576.14 ms` | **`14.54×`** faster | `2.95e-12` |
+| Batch Self-Join (`N=32,768, m=64`) | **`87.33 ms`** | `2,377.48 ms` | **`27.22×`** faster | `3.69e-12` |
+| AB-Join (`32,768 × 4,096, m=64`) | **`31.84 ms`** *(2-way)* | `502.80 ms` *(1-way)* | **`15.79×`** faster | `3.09e-12` |
+| Multivariate `mSTUMP` (`D=4, N=4,096`) | **`29.03 ms`** | `1,742.62 ms` | **`60.02×`** faster | `1.23e-11` |
+| Multivariate `mSTUMP` (`D=8, N=8,192`) | **`154.91 ms`** | `10,609.65 ms` | **`68.49×`** faster | `1.23e-10` |
+| Streaming `W=1,024` (`egress=True`) | **`2.54 µs`** *(batch)* / **`3.63 µs`** *(py-loop)* / **`1.27 µs`** *(causal)* | `454.5 µs` | **`125.2×`–`358.5×`** faster | **`2.18e-13`** vs **`1.570`** |
+| Streaming `W=4,096` (`egress=True`) | **`4.59 µs`** *(batch)* / **`5.90 µs`** *(py-loop)* / **`3.01 µs`** *(causal)* | `498.3 µs` | **`84.5×`–`165.7×`** faster | **`4.65e-13`** vs **`1.137`** |
+| Streaming `W=16,384` (`egress=True`) | **`12.06 µs`** *(batch)* / **`13.34 µs`** *(py-loop)* / **`7.80 µs`** *(causal)* | `712.0 µs` | **`53.4×`–`91.2×`** faster | **`3.73e-13`** vs **`1.021`** |
 | High-DC Stability (`DC=1e10, N=2,048`) | **`4.65e-6`** max err | `2.19e-3` max err | **`471×`** more accurate | — |
 
 ---
@@ -30,10 +30,10 @@ All numbers measured live on identical inputs, matched thread counts (`2T`), and
 ### 1. Exact Bounded-Window Streaming (`RingMP` vs `stumpy.stumpi`)
 When `egress=True`, `stumpy.stumpi` drops the oldest subsequence from the front of the sliding window, but surviving subsequences whose nearest neighbor was that expired subsequence retain **stale distances and indices**. Across `W = 1,024..16,384`, this produces **`1.02–1.57`** maximum absolute error relative to the true sliding-window Matrix Profile.
 
-FlashMP's `RingMP` solves egress mathematically via a **Monotone Suffix-Max Left-Stack** (expected depth $\ln W \approx 8.9$ at $W = 4{,}096$, capped at 64 with exact fallback rebuild). Expiring a subsequence pops invalidated left-neighbors in $O(1)$ amortized time using 8-wide AVX2 index scans, maintaining **`< 2e-12`** exactness on every tick while running **`19×–338×`** faster.
+FlashMP's `RingMP` solves egress mathematically via a **Monotone Suffix-Max Left-Stack** + **$O(1)$-amortized intrusive expiration buckets** + **Hybrid 32-wide Mature-Float32 screening** (for L3-bound windows `W >= 6,144`) + zero-copy PEP 3118 `_fast` C-API dispatch, maintaining **`< 5e-13`** exactness on every tick while running **`53×–358×`** faster.
 
 ### 2. Zero Numba / LLVM Cold Start & Zero Mandatory Dependencies
-`STUMPY` depends on NumPy, SciPy, Numba, and llvmlite (~109 MiB) and compiles LLVM IR on first call (`41.9 s` in a fresh container/serverless process). FlashMP ships a precompiled C++20 shared library with `0` required Python dependencies: `import flashmp` completes in **`0.78 ms`** with `numpy` never loaded unless the caller passes NumPy arrays.
+`STUMPY` depends on NumPy, SciPy, Numba, and llvmlite (~109 MiB) and compiles LLVM IR on first call (`38.0 s` in a fresh container/serverless process). FlashMP ships prebuilt C++20 native binaries with `0` required Python dependencies: `import flashmp` completes in **`0.57 ms`** with `numpy` never loaded unless the caller passes NumPy arrays, while seamlessly duck-typing Pandas and Polars Series/DataFrames without importing them.
 
 ### 3. Drop-In Migration (1-Line Swap)
 ```python

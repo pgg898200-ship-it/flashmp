@@ -115,6 +115,30 @@ def render() -> str:
             f"| `{r['channels']:,}` | **`{r['channel_ticks_per_sec']:,.0f}`** | `{r['us_per_channel_tick']:.2f} µs` | **`{r['fault_recall']*100:.0f}%`** (`{r['tp_found']}/{r['total_faults']}`) | **`{r['loud_distractor_false_positives']}`** | `{r['brief_tokens']}` | `{'PASS' if r['order_invariant_16_shuffles'] else 'FAIL'}` |"
         )
 
+    rw_path = BENCH / "results_realworld_domains.json"
+    if rw_path.is_file():
+        rw = json.loads(rw_path.read_text())
+        s = rw["summary"]
+        rec = s["discord_top3_recall"]
+        lines += [
+            "",
+            "## 10. Five-Domain Real-World Telemetry Evaluation (`N=10,000` Each, `$3/MTok` API Economics)",
+            "",
+            "| Domain | `m` | `digest()` | Raw → Digest Tokens | Token Savings | Cost / 10k Queries | Top-3 Discord (FlashMP / LTTB / M4) | Drill Err | RingMP (`W=1,024`) | Pre-Anom FPs |",
+            "|---|---:|---:|---:|---:|---:|:---:|---:|---:|---:|",
+        ]
+        for d in rw["domains"]:
+            tok_d = d["tokens"]
+            cost_d = d["api_cost_10k_queries_usd_at_3_per_mtok"]
+            loc = d["discord_top3_hit"]
+            st = d["ringmp_streaming"]
+            lines.append(
+                f"| **{d['name']}** | `{d['m']}` | `{d['digest_latency_ms']:.1f} ms` | `{tok_d['raw']:,} → {tok_d['flashmp_compact']}` | **`-{tok_d['savings_pct']:.2f}%`** | `${cost_d['raw_usd']:,.2f} → ${cost_d['flashmp_usd']:.2f}` | **`{'Hit (#%d)' % loc['flashmp_rank'] if loc['flashmp'] else 'Miss'}`** / `{'Hit' if loc['lttb_matched_tokens'] else 'Miss'}` / `{'Hit' if loc['m4_matched_tokens'] else 'Miss'}` | `{d['lossless_drilldown_max_abs_err']:.1f}` | `{st['us_per_tick']:.2f} µs/tick` | `{st['pre_anomaly_false_alerts']}` |"
+            )
+        lines.append(
+            f"| **Mean / Total ({s['domains_tested']} domains)** | — | **`{s['mean_digest_latency_ms']:.1f} ms`** | **`{s['mean_raw_tokens']:,.0f} → {s['mean_compact_tokens']:.1f}`** | **`-{s['mean_token_savings_pct']:.2f}%` (`{s['mean_compression_ratio_x']:.0f}×`)** | **`${s['mean_raw_cost_10k_usd']:,.2f} → ${s['mean_flashmp_cost_10k_usd']:.2f}`** | **`{rec['flashmp_hits']}` (`{rec['flashmp']*100:.0f}%`) / `{rec['lttb_hits']}` / `{rec['m4_hits']}`** | **`{s['max_lossless_drilldown_err']:.1f}`** | **`{s['ringmp_mean_us_per_tick']:.2f} µs/tick`** | **`{s['ringmp_total_pre_anomaly_false_alerts']}`** |"
+        )
+
     lines += [
         "",
         "## Reproduce",
@@ -123,6 +147,7 @@ def render() -> str:
         "python benchmarks/bench_vs_incumbents.py",
         "python benchmarks/bench_agent_tokens.py",
         "python benchmarks/bench_swarm_sift.py",
+        "python benchmarks/bench_realworld_domains.py",
         "python benchmarks/render_report.py",
         "```",
         "",

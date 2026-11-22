@@ -20,6 +20,7 @@ from ._native import (
     _default_excl_zone,
     _get_numpy,
     _use_numpy,
+    get_fast,
     get_lib,
 )
 
@@ -438,22 +439,27 @@ def profile(
     rmp, rmp_ptr = _alloc_double(n, use_np)
     ridx, ridx_ptr = _alloc_int64(n, use_np)
 
-    rc = get_lib().fmp_self_join(
-        ptr,
-        N,
-        m_int,
-        ez,
-        int(threads),
-        mp_ptr,
-        idx_ptr,
-        lmp_ptr,
-        lidx_ptr,
-        rmp_ptr,
-        ridx_ptr,
-    )
-    del owner
-    if rc != 0:
-        raise RuntimeError(f"fmp_self_join failed with error code {rc}")
+    fast = get_fast()
+    if fast is not None:
+        fast.fast_self_join(owner, m_int, ez, int(threads), mp, idx, lmp, lidx, rmp, ridx)
+        del owner
+    else:
+        rc = get_lib().fmp_self_join(
+            ptr,
+            N,
+            m_int,
+            ez,
+            int(threads),
+            mp_ptr,
+            idx_ptr,
+            lmp_ptr,
+            lidx_ptr,
+            rmp_ptr,
+            ridx_ptr,
+        )
+        del owner
+        if rc != 0:
+            raise RuntimeError(f"fmp_self_join failed with error code {rc}")
     return MatrixProfileResult(
         mp=mp,
         idx=idx,
@@ -478,6 +484,7 @@ def stump(
     """Drop-in STUMPY-compatible Matrix Profile (`[P, I, left_I, right_I]` shape `(n, 4)`)."""
     ptr_a, NA, owner_a, is_np_a = _as_c_double_array(T_A)
     m_int = _validate_window(NA, m)
+    fast = get_fast()
 
     if T_B is None and ignore_trivial:
         ez = _resolve_excl_zone(m_int, excl_zone)
@@ -488,22 +495,26 @@ def stump(
         lidx, lidx_ptr = _alloc_int64(n, use_np)
         ridx, ridx_ptr = _alloc_int64(n, use_np)
 
-        rc = get_lib().fmp_self_join(
-            ptr_a,
-            NA,
-            m_int,
-            ez,
-            int(threads),
-            mp_ptr,
-            idx_ptr,
-            NULL_DOUBLE,
-            lidx_ptr,
-            NULL_DOUBLE,
-            ridx_ptr,
-        )
-        del owner_a
-        if rc != 0:
-            raise RuntimeError(f"fmp_self_join failed with error code {rc}")
+        if fast is not None:
+            fast.fast_self_join(owner_a, m_int, ez, int(threads), mp, idx, None, lidx, None, ridx)
+            del owner_a
+        else:
+            rc = get_lib().fmp_self_join(
+                ptr_a,
+                NA,
+                m_int,
+                ez,
+                int(threads),
+                mp_ptr,
+                idx_ptr,
+                NULL_DOUBLE,
+                lidx_ptr,
+                NULL_DOUBLE,
+                ridx_ptr,
+            )
+            del owner_a
+            if rc != 0:
+                raise RuntimeError(f"fmp_self_join failed with error code {rc}")
         return MPArray(mp, idx, lidx, ridx)
 
     # AB-join (or self-join with ignore_trivial=False)
@@ -518,21 +529,25 @@ def stump(
     mp_a, mp_a_ptr = _alloc_double(nA, use_np)
     idx_a, idx_a_ptr = _alloc_int64(nA, use_np)
 
-    rc = get_lib().fmp_ab_join(
-        ptr_a,
-        NA,
-        ptr_b,
-        NB,
-        m_int,
-        int(threads),
-        mp_a_ptr,
-        idx_a_ptr,
-        NULL_DOUBLE,
-        NULL_INT64,
-    )
-    del owner_a, owner_b
-    if rc != 0:
-        raise RuntimeError(f"fmp_ab_join failed with error code {rc}")
+    if fast is not None:
+        fast.fast_ab_join(owner_a, owner_b, m_int, int(threads), mp_a, idx_a)
+        del owner_a, owner_b
+    else:
+        rc = get_lib().fmp_ab_join(
+            ptr_a,
+            NA,
+            ptr_b,
+            NB,
+            m_int,
+            int(threads),
+            mp_a_ptr,
+            idx_a_ptr,
+            NULL_DOUBLE,
+            NULL_INT64,
+        )
+        del owner_a, owner_b
+        if rc != 0:
+            raise RuntimeError(f"fmp_ab_join failed with error code {rc}")
 
     minus_left, _ = _alloc_int64(nA, use_np, fill=-1)
     minus_right, _ = _alloc_int64(nA, use_np, fill=-1)
@@ -560,21 +575,26 @@ def abjoin(
     mp_b, mp_b_ptr = _alloc_double(nB, use_np)
     idx_b, idx_b_ptr = _alloc_int64(nB, use_np)
 
-    rc = get_lib().fmp_ab_join(
-        ptr_a,
-        NA,
-        ptr_b,
-        NB,
-        m_int,
-        int(threads),
-        mp_a_ptr,
-        idx_a_ptr,
-        mp_b_ptr,
-        idx_b_ptr,
-    )
-    del owner_a, owner_b
-    if rc != 0:
-        raise RuntimeError(f"fmp_ab_join failed with error code {rc}")
+    fast = get_fast()
+    if fast is not None:
+        fast.fast_ab_join(owner_a, owner_b, m_int, int(threads), mp_a, idx_a, mp_b, idx_b)
+        del owner_a, owner_b
+    else:
+        rc = get_lib().fmp_ab_join(
+            ptr_a,
+            NA,
+            ptr_b,
+            NB,
+            m_int,
+            int(threads),
+            mp_a_ptr,
+            idx_a_ptr,
+            mp_b_ptr,
+            idx_b_ptr,
+        )
+        del owner_a, owner_b
+        if rc != 0:
+            raise RuntimeError(f"fmp_ab_join failed with error code {rc}")
     return mp_a, idx_a, mp_b, idx_b
 
 
@@ -596,19 +616,24 @@ def mstump(
     mp_buf, mp_ptr = _alloc_double_2d(D, n, use_np)
     idx_buf, idx_ptr = _alloc_int64_2d(D, n, use_np)
 
-    rc = get_lib().fmp_mstump(
-        ptr,
-        D,
-        N,
-        m_int,
-        ez,
-        int(threads),
-        mp_ptr,
-        idx_ptr,
-    )
-    del owner
-    if rc != 0:
-        raise RuntimeError(f"fmp_mstump failed with error code {rc}")
+    fast = get_fast()
+    if fast is not None:
+        fast.fast_mstump(owner, D, N, m_int, ez, int(threads), mp_buf, idx_buf)
+        del owner
+    else:
+        rc = get_lib().fmp_mstump(
+            ptr,
+            D,
+            N,
+            m_int,
+            ez,
+            int(threads),
+            mp_ptr,
+            idx_ptr,
+        )
+        del owner
+        if rc != 0:
+            raise RuntimeError(f"fmp_mstump failed with error code {rc}")
 
     if use_np:
         return mp_buf, idx_buf
@@ -624,10 +649,15 @@ def floss(idx: Any, L: int) -> Any:
     use_np = _use_numpy(is_np)
 
     cac, cac_ptr = _alloc_double(n, use_np)
-    rc = get_lib().fmp_floss_cac(ptr, n, L_int, cac_ptr)
-    del owner
-    if rc != 0:
-        raise RuntimeError(f"fmp_floss_cac failed with error code {rc}")
+    fast = get_fast()
+    if fast is not None:
+        fast.fast_floss_cac(owner, L_int, cac)
+        del owner
+    else:
+        rc = get_lib().fmp_floss_cac(ptr, n, L_int, cac_ptr)
+        del owner
+        if rc != 0:
+            raise RuntimeError(f"fmp_floss_cac failed with error code {rc}")
     return cac
 
 
@@ -688,7 +718,11 @@ def auto_window(T: Any, min_m: int = 8, max_m: int = 512) -> int:
     ptr, N, owner, _ = _as_c_double_array(T)
     if N <= 0:
         raise ValueError("Time series T must be non-empty")
-    res = int(get_lib().fmp_auto_window(ptr, N, int(min_m), int(max_m)))
+    fast = get_fast()
+    if fast is not None:
+        res = int(fast.fast_auto_window(owner, int(min_m), int(max_m)))
+    else:
+        res = int(get_lib().fmp_auto_window(ptr, N, int(min_m), int(max_m)))
     del owner
     return res
 

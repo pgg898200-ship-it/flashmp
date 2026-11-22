@@ -12,6 +12,7 @@ from ._native import (
     _alloc_int64,
     _as_c_double_array,
     _use_numpy,
+    get_fast,
     get_lib,
 )
 
@@ -193,26 +194,40 @@ def scan_leakage(
 
     best_corr, bc_ptr = _alloc_double(n_qry, use_np)
     best_ref_idx, bri_ptr = _alloc_int64(n_qry, use_np)
-    hit_count = ctypes.c_int64(0)
 
-    rc = get_lib().fmp_leak_scan(
-        ref_ptr,
-        N_ref,
-        qry_ptr,
-        N_qry,
-        m_int,
-        thresh,
-        1 if check_neg else 0,
-        int(threads),
-        bc_ptr,
-        bri_ptr,
-        ctypes.byref(hit_count),
-    )
-    if rc != 0:
-        del ref_owner, qry_owner
-        raise RuntimeError(f"fmp_leak_scan failed with error code {rc}")
-
-    contaminated = int(hit_count.value)
+    fast = get_fast()
+    if fast is not None:
+        contaminated = int(
+            fast.fast_leak_scan(
+                ref_owner,
+                qry_owner,
+                m_int,
+                thresh,
+                bool(check_neg),
+                int(threads),
+                best_corr,
+                best_ref_idx,
+            )
+        )
+    else:
+        hit_count = ctypes.c_int64(0)
+        rc = get_lib().fmp_leak_scan(
+            ref_ptr,
+            N_ref,
+            qry_ptr,
+            N_qry,
+            m_int,
+            thresh,
+            1 if check_neg else 0,
+            int(threads),
+            bc_ptr,
+            bri_ptr,
+            ctypes.byref(hit_count),
+        )
+        if rc != 0:
+            del ref_owner, qry_owner
+            raise RuntimeError(f"fmp_leak_scan failed with error code {rc}")
+        contaminated = int(hit_count.value)
     rate = contaminated / n_qry if n_qry > 0 else 0.0
 
     # Extract top non-overlapping contaminated examples for OLS affine classification.

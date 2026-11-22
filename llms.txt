@@ -1,19 +1,31 @@
 # FlashMP
 
-> CPU matrix profiles for numeric time series. Use FlashMP to find recurring shapes (motifs), inspect unusual windows (discords), detect similar train/test subsequences, or give a tool-using agent a summary of a signal.
+> Exact CPU SIMD matrix profiles (`AVX2+FMA` / `ARM64-NEON` + zero-copy PEP 3118 `_fast` C-API) for numeric time series. Find recurring shapes (motifs), inspect unusual windows (discords), stream bounded windows with exact egress, detect affine train/test subsequence leakage, or give OpenAI/Anthropic/MCP agents a `-99.3%` to `-99.7%` token structural digest with `0.0` lossless drill-down error. Zero required Python dependencies, `0.57 ms` import, Apache-2.0 licensed.
 
 ## Interfaces
 
-- Python: `flashmp.stump(values, m)` takes an ordered numeric sequence and a window length in samples. `P_[i]` gives the z-normalized distance to the nearest eligible neighbor of window i. `I_[i]` gives that neighbor's start index. Constant windows are masked in the univariate self-join.
-- Cross-series shape search with `flashmp.abjoin(a, b, m)` returns `distance_a, index_in_b, distance_b, index_in_a`. Indices are zero-based window starts. Read the [known-incident example](https://github.com/pgg898200-ship-it/flashmp#find-a-known-incident-in-a-second-recording) for a checked input and output.
-- Streaming: `flashmp.StreamMP(m=..., window=..., egress=True)` maintains a profile as old samples expire.
-- Evaluation: `flashmp.scan_leakage(train, test, m=...)` flags correlated subsequences, including sign-flipped matches by default.
-- CLI: `flashmp mp metrics.csv --col latency_ms -m 64 --out profile.csv` writes the profile to CSV.
-- MCP: `flashmp-mcp` runs a local stdio server. `ts_digest` accepts numeric values or a file path. `ts_drilldown` takes the result's session handle plus `start` and exclusive `end` to retrieve the original samples.
+- Python: `flashmp.stump(values, m)` takes an ordered numeric sequence, NumPy array, or duck-typed Pandas/Polars Series/DataFrame and a window length `m`. `P_[i]` gives the z-normalized distance to the nearest eligible neighbor of window `i`; `I_[i]` gives its zero-based start index. Constant windows are masked in the univariate self-join.
+- Multivariate: `flashmp.mstump(X, m)` returns `(P, I)` of shape `(D, n)` matching `stumpy.mstump` (`68.5×` faster on `D=8, N=8,192`).
+- Cross-series shape search: `flashmp.abjoin(a, b, m)` returns `distance_a, index_in_b, distance_b, index_in_a`. Read the [known-incident example](https://github.com/pgg898200-ship-it/flashmp#find-a-known-incident-in-a-second-recording) for a checked input and output.
+- Streaming: `flashmp.StreamMP(m=..., window=..., egress=True)` maintains an exact sliding-window profile as old samples expire (`125×–358×` vs `stumpy.stumpi` at `W=1,024`, `< 5e-13` egress error) plus anytime-valid Hölder-tempered e-CUSUM alerting.
+- Evaluation: `flashmp.scan_leakage(train, test, m=...)` flags verbatim, affine-rescaled/shifted ($ax+b$), and sign-flipped subsequences.
+- Agentic compression & toolkits: `flashmp.digest(values_or_df)` compresses `10,000`-point series by `-99.31%` to `-99.71%` with bit-exact `drilldown(start, end)`. `flashmp.openai_tools()`, `flashmp.anthropic_tools()`, and `flashmp.AgentToolkit(allowed_dirs=[...])` expose all 8 tools without third-party SDK dependencies.
+- Multi-agent firehose: `flashmp.SwarmMonitor` monitors 64–4,096 concurrent streams (`205k–276k ch-ticks/s`) with scale-invariant anomaly detection and commutative CRDT `AlertLedger` fusion.
+- CLI: `flashmp demo`, `flashmp bench`, `flashmp mp`, `flashmp digest`, `flashmp leak-scan`, `flashmp watch`, `flashmp mcp-config`, and `flashmp install-skill`.
+- MCP: `flashmp-mcp` runs a local path-sandboxed stdio JSON-RPC 2.0 server exposing `ts_digest`, `ts_drilldown`, `ts_anomalies`, `ts_regimes`, `ts_leak_scan`, `ts_stream_create`, `ts_stream_push`, and `ts_swarm_sift`.
+
+## Verified CPU Performance (`v0.2.0`, `2026-11-22`, x86-64 AVX2+FMA, 2 vCPU)
+
+- Cold `import flashmp`: `0.57 ms` (`0` deps); import + first `N=4,096` join: `43.2 ms` (`880×` vs `STUMPY 1.14.1`).
+- Batch self-join (`N=32,768, m=64, 2T`): `87.3 ms` (`8.79×` vs `pyscamp`, `27.22×` vs `STUMPY`, `3.69e-12` err).
+- Bidirectional AB-join (`32,768 × 4,096`): `31.8 ms` (`3.25×` vs `pyscamp`, `15.79×` vs `STUMPY`).
+- Multivariate `mSTUMP` (`D=8, N=8,192`): `154.9 ms` (`68.5×` vs `STUMPY`).
+- Bounded-window streaming (`W=1,024, egress=True`): `2.54 µs` batch / `3.63 µs` Python loop / `1.27 µs` causal (`125×–358×` vs `stumpy.stumpi`, `2.18e-13` egress err vs STUMPY `1.570` stale).
+- Five-domain real-world evaluation (`N=10,000` each): `-99.47%` mean token savings (`$763.53 → $3.68` per 10k queries at `$3/MTok`), `5/5` Rank #1 discord recall vs `0/5` LTTB/M4, `0.0` drill-down error, `3.42 µs/tick` RingMP streaming (`0` pre-anomaly FPs).
 
 ## Run it
 
-Install from GitHub with Git, Python 3.10+ and g++ or clang++ with C++20 support. The first native operation builds and caches the shared library.
+Install a prebuilt Linux `x86_64` or macOS `arm64` wheel from GitHub Releases, or install from GitHub with Python 3.10+ and `g++`/`clang++` (C++20).
 
 - [Install command and expected output](https://github.com/pgg898200-ship-it/flashmp#find-the-second-occurrence)
 - [Executable motif search notebook](https://github.com/pgg898200-ship-it/flashmp/blob/main/examples/find_a_repeated_shape.ipynb)
@@ -23,5 +35,5 @@ Install from GitHub with Git, Python 3.10+ and g++ or clang++ with C++20 support
 ## Evidence and scope
 
 - [Workloads, numerical errors, timings and reproduction commands](https://github.com/pgg898200-ship-it/flashmp/blob/main/benchmarks/RESULTS.md)
-- [Sliding-window semantics and numerical methods](https://github.com/pgg898200-ship-it/flashmp/blob/main/docs/architecture.md)
+- [Sliding-window semantics, 48-wide SIMD, and numerical proofs](https://github.com/pgg898200-ship-it/flashmp/blob/main/docs/architecture.md)
 - [CPU, GPU and API coverage](https://github.com/pgg898200-ship-it/flashmp#scope-and-limitations)

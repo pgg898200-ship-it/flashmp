@@ -395,6 +395,22 @@ def _cmd_mcp(_args: argparse.Namespace) -> int:
     return mcp_main()
 
 
+def _cmd_mcp_config(args: argparse.Namespace) -> int:
+    from .integrations import mcp_client_config
+
+    print(mcp_client_config(client=args.client, allowed_dirs=args.allowed_dir or None))
+    return 0
+
+
+def _cmd_install_skill(args: argparse.Namespace) -> int:
+    from .integrations import install_skill
+
+    paths = install_skill(target=args.target, dest_dir=args.dest_dir)
+    for p in paths:
+        print(f"Installed FlashMP SKILL.md -> {p}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="flashmp",
@@ -445,6 +461,31 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_mcp = sub.add_parser("mcp", help="Start the native stdio JSON-RPC 2.0 MCP server.")
     p_mcp.set_defaults(func=_cmd_mcp)
+
+    p_mcfg = sub.add_parser("mcp-config", help="Print ready-to-paste MCP client configuration.")
+    p_mcfg.add_argument(
+        "--client",
+        choices=("claude-code", "cursor", "codex", "gemini"),
+        default="claude-code",
+        help="Target MCP client (default: claude-code).",
+    )
+    p_mcfg.add_argument(
+        "--allowed-dir",
+        action="append",
+        default=[],
+        help="Directory permitted for file-reading MCP tools (repeatable).",
+    )
+    p_mcfg.set_defaults(func=_cmd_mcp_config)
+
+    p_skill = sub.add_parser("install-skill", help="Install FlashMP SKILL.md for Claude Code / Cursor / Codex.")
+    p_skill.add_argument(
+        "--target",
+        choices=("claude", "cursor", "codex", "all"),
+        default="claude",
+        help="Target coding agent skill directory (default: claude).",
+    )
+    p_skill.add_argument("--dest-dir", default=None, help="Explicit custom destination directory.")
+    p_skill.set_defaults(func=_cmd_install_skill)
 
     p_demo = sub.add_parser("demo", help="Run a zero-input 1-second showcase of all flashmp capabilities.")
     p_demo.set_defaults(func=_cmd_demo)

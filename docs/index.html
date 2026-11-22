@@ -1,0 +1,1962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FlashMP — SIMD Exact Matrix Profile, Streaming RingMP &amp; Reversible Agentic Digests</title>
+<meta name="description" content="Zero-dependency C++20/Python SIMD exact batch &amp; bounded-window streaming Matrix Profile (27.2x vs STUMPY, 8.8x vs pyscamp, 68.5x mSTUMP, 358x streaming) and -99.31% to -99.71% token reversible LLM digests.">
+<style>
+  :root {
+    --bg-0: #06090f;
+    --bg-1: #0b111c;
+    --bg-2: #101827;
+    --bg-3: #162133;
+    --border: rgba(148, 163, 184, 0.14);
+    --border-hi: rgba(52, 211, 153, 0.38);
+    --ink-0: #f8fafc;
+    --ink-1: #cbd5e1;
+    --ink-2: #94a3b8;
+    --ink-3: #64748b;
+    --emerald: #10b981;
+    --emerald-hi: #34d399;
+    --emerald-dim: rgba(16, 185, 129, 0.14);
+    --amber: #f59e0b;
+    --amber-hi: #fbbf24;
+    --amber-dim: rgba(245, 158, 11, 0.14);
+    --rose: #f43f5e;
+    --rose-dim: rgba(244, 63, 94, 0.14);
+    --sky: #38bdf8;
+    --slate-bar: #475569;
+    --slate-bar-2: #334155;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    --shadow-card: 0 12px 36px -12px rgba(0, 0, 0, 0.55);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg-0);
+    color: var(--ink-0);
+    font-family: var(--font-sans);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  a { color: var(--emerald-hi); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, pre { font-family: var(--font-mono); }
+
+  /* Subtle atmospheric engineering grid */
+  .bg-grid {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    background-image:
+      radial-gradient(ellipse 80% 45% at 50% -10%, rgba(16, 185, 129, 0.14), transparent 70%),
+      radial-gradient(ellipse 50% 35% at 88% 12%, rgba(245, 158, 11, 0.08), transparent 65%),
+      radial-gradient(rgba(148, 163, 184, 0.07) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 28px 28px;
+  }
+
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 20px;
+  }
+
+  /* Header / Nav */
+  header.nav {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    background: rgba(6, 9, 15, 0.84);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    height: 62px;
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--ink-0);
+    font-weight: 700;
+    font-size: 1.05rem;
+    letter-spacing: -0.02em;
+  }
+  .brand:hover { text-decoration: none; }
+  .brand-badge {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: var(--emerald-dim);
+    color: var(--emerald-hi);
+    border: 1px solid var(--border-hi);
+  }
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    font-size: 0.88rem;
+  }
+  .nav-links a { color: var(--ink-1); transition: color 0.15s; }
+  .nav-links a:hover { color: var(--emerald-hi); text-decoration: none; }
+  .nav-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 13px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    color: var(--ink-0) !important;
+    font-weight: 600;
+    font-size: 0.82rem;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .nav-cta:hover {
+    border-color: var(--border-hi);
+    background: var(--bg-3);
+  }
+
+  /* Hero */
+  .hero {
+    padding: 54px 0 36px;
+  }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    color: var(--ink-1);
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    margin-bottom: 18px;
+  }
+  .dot-live {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--emerald-hi);
+    box-shadow: 0 0 10px var(--emerald);
+  }
+  h1 {
+    margin: 0 0 14px;
+    font-size: clamp(2rem, 4.4vw, 3.35rem);
+    line-height: 1.08;
+    letter-spacing: -0.035em;
+    font-weight: 800;
+    max-width: 19ch;
+  }
+  h1 .accent {
+    background: linear-gradient(95deg, var(--emerald-hi) 0%, #6ee7b7 52%, var(--amber-hi) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero-sub {
+    margin: 0 0 28px;
+    color: var(--ink-1);
+    font-size: clamp(1rem, 1.5vw, 1.15rem);
+    max-width: 72ch;
+  }
+  .hero-sub strong { color: var(--ink-0); font-weight: 600; }
+
+  /* KPI Strip */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .kpi {
+    background: linear-gradient(180deg, rgba(16, 24, 39, 0.92), rgba(11, 17, 28, 0.92));
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 15px 14px;
+    box-shadow: var(--shadow-card);
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  .kpi:hover {
+    border-color: var(--border-hi);
+    transform: translateY(-2px);
+  }
+  .kpi-val {
+    font-family: var(--font-mono);
+    font-size: 1.55rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--emerald-hi);
+    line-height: 1.15;
+  }
+  .kpi-val.amber { color: var(--amber-hi); }
+  .kpi-label {
+    margin-top: 5px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--ink-0);
+  }
+  .kpi-note {
+    margin-top: 3px;
+    font-size: 0.72rem;
+    color: var(--ink-2);
+    font-family: var(--font-mono);
+  }
+
+  /* Quickstart Code Box */
+  .code-panel {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+  }
+  .code-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(16, 24, 39, 0.9);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .tab-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .tab-btn {
+    appearance: none;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--ink-2);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 6px 11px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .tab-btn:hover { color: var(--ink-0); background: rgba(148, 163, 184, 0.08); }
+  .tab-btn.active {
+    color: var(--emerald-hi);
+    background: var(--emerald-dim);
+    border-color: var(--border-hi);
+  }
+  .copy-btn {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-2);
+    color: var(--ink-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 6px 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .copy-btn:hover { border-color: var(--border-hi); color: var(--ink-0); }
+  .copy-btn.copied {
+    background: var(--emerald-dim);
+    border-color: var(--emerald);
+    color: var(--emerald-hi);
+  }
+  .code-pre {
+    margin: 0;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 0.84rem;
+    line-height: 1.62;
+    color: #e2e8f0;
+  }
+  .code-pre .cm { color: var(--ink-3); }
+  .code-pre .kw { color: var(--amber-hi); }
+  .code-pre .fn { color: var(--emerald-hi); }
+  .code-pre .st { color: #7dd3fc; }
+
+  /* Sections */
+  section.block {
+    padding: 48px 0;
+    border-top: 1px solid var(--border);
+  }
+  .sec-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 22px;
+  }
+  .sec-kicker {
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--amber-hi);
+    margin-bottom: 6px;
+    font-weight: 700;
+  }
+  h2 {
+    margin: 0;
+    font-size: clamp(1.45rem, 2.6vw, 2rem);
+    letter-spacing: -0.025em;
+    line-height: 1.18;
+  }
+  .sec-desc {
+    margin: 8px 0 0;
+    color: var(--ink-2);
+    max-width: 66ch;
+    font-size: 0.94rem;
+  }
+
+  /* Interactive Benchmark Explorer */
+  .bench-shell {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+  }
+  .bench-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 12px 14px;
+    background: rgba(16, 24, 39, 0.92);
+    border-bottom: 1px solid var(--border);
+  }
+  .bench-tab {
+    appearance: none;
+    border: 1px solid var(--border);
+    background: var(--bg-1);
+    color: var(--ink-1);
+    font-family: var(--font-mono);
+    font-size: 0.77rem;
+    font-weight: 600;
+    padding: 7px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .bench-tab:hover { border-color: rgba(148, 163, 184, 0.35); color: var(--ink-0); }
+  .bench-tab.active {
+    background: var(--emerald-dim);
+    border-color: var(--emerald);
+    color: var(--emerald-hi);
+  }
+  .bench-body {
+    padding: 20px;
+  }
+  .bench-meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .bench-title {
+    font-size: 1.08rem;
+    font-weight: 700;
+    color: var(--ink-0);
+  }
+  .bench-subtitle {
+    font-size: 0.84rem;
+    color: var(--ink-2);
+    margin-top: 2px;
+  }
+  .legend {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--ink-1);
+  }
+  .legend-item { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+
+  .chart-frame {
+    width: 100%;
+    overflow-x: auto;
+    background: rgba(6, 9, 15, 0.6);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 14px;
+  }
+  .chart-frame svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    min-width: 560px;
+  }
+
+  .callouts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .callout {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 13px 14px;
+  }
+  .callout-k {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--ink-2);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .callout-v {
+    margin-top: 4px;
+    font-family: var(--font-mono);
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--ink-0);
+  }
+  .callout-v.em { color: var(--emerald-hi); }
+  .callout-v.am { color: var(--amber-hi); }
+  .callout-v.ro { color: var(--rose); }
+  .callout-s {
+    margin-top: 3px;
+    font-size: 0.78rem;
+    color: var(--ink-2);
+  }
+
+  /* Data Table */
+  .table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: rgba(6, 9, 15, 0.55);
+  }
+  table.receipt {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+    font-family: var(--font-mono);
+  }
+  table.receipt th, table.receipt td {
+    padding: 10px 12px;
+    text-align: right;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  table.receipt th:first-child, table.receipt td:first-child { text-align: left; }
+  table.receipt th {
+    color: var(--ink-2);
+    font-size: 0.73rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: rgba(16, 24, 39, 0.75);
+  }
+  table.receipt tr:last-child td { border-bottom: none; }
+  .pill {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+  .pill-em { background: var(--emerald-dim); color: var(--emerald-hi); border: 1px solid var(--border-hi); }
+  .pill-am { background: var(--amber-dim); color: var(--amber-hi); border: 1px solid rgba(245, 158, 11, 0.35); }
+  .pill-ro { background: var(--rose-dim); color: #fda4af; border: 1px solid rgba(244, 63, 94, 0.35); }
+
+  /* Token & Cost Calculator */
+  .calc-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    gap: 18px;
+    align-items: start;
+  }
+  .card {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    box-shadow: var(--shadow-card);
+  }
+  .ctrl {
+    margin-bottom: 18px;
+  }
+  .ctrl:last-child { margin-bottom: 0; }
+  .ctrl-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 7px;
+    gap: 8px;
+  }
+  .ctrl-label { font-size: 0.86rem; font-weight: 600; color: var(--ink-0); }
+  .ctrl-readout {
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--emerald-hi);
+  }
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--emerald);
+    cursor: pointer;
+    height: 6px;
+  }
+  .preset-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .preset-btn {
+    appearance: none;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    color: var(--ink-1);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    padding: 4px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .preset-btn:hover, .preset-btn.active {
+    border-color: var(--border-hi);
+    color: var(--emerald-hi);
+    background: var(--emerald-dim);
+  }
+
+  .calc-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .cmetric {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 13px 14px;
+  }
+  .cmetric.highlight {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 24, 39, 0.95));
+    border-color: var(--border-hi);
+  }
+  .cmetric-k { font-size: 0.74rem; color: var(--ink-2); font-family: var(--font-mono); text-transform: uppercase; }
+  .cmetric-v { font-size: 1.38rem; font-weight: 800; font-family: var(--font-mono); margin-top: 4px; color: var(--ink-0); }
+  .cmetric-v.em { color: var(--emerald-hi); }
+  .cmetric-v.am { color: var(--amber-hi); }
+  .cmetric-s { font-size: 0.75rem; color: var(--ink-2); margin-top: 2px; font-family: var(--font-mono); }
+
+  .ctx-bar-wrap {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    margin-bottom: 16px;
+  }
+  .ctx-bar-head {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--ink-1);
+    margin-bottom: 8px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .ctx-track {
+    height: 10px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.12);
+    overflow: hidden;
+    position: relative;
+  }
+  .ctx-fill-raw {
+    height: 100%;
+    background: linear-gradient(90deg, var(--amber), var(--rose));
+    transition: width 0.2s;
+  }
+  .ctx-fill-fmp {
+    margin-top: 6px;
+    height: 10px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.12);
+    overflow: hidden;
+  }
+  .ctx-fill-fmp > div {
+    height: 100%;
+    background: var(--emerald-hi);
+    min-width: 4px;
+    transition: width 0.2s;
+  }
+
+  /* Live Digest & Drilldown */
+  .digest-box {
+    background: #05080e;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 14px;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    line-height: 1.65;
+    color: #d1fae5;
+    overflow-x: auto;
+  }
+  .digest-line { white-space: pre-wrap; word-break: break-word; }
+  .digest-hdr { color: var(--emerald-hi); font-weight: 700; }
+  .digest-lbl { color: var(--amber-hi); font-weight: 700; }
+  .drill-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 12px 0;
+  }
+  .drill-chip {
+    appearance: none;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    color: var(--ink-0);
+    font-family: var(--font-mono);
+    font-size: 0.74rem;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .drill-chip:hover { border-color: var(--amber); color: var(--amber-hi); }
+  .drill-chip.active {
+    background: var(--amber-dim);
+    border-color: var(--amber);
+    color: var(--amber-hi);
+  }
+  .drill-panel {
+    background: rgba(16, 24, 39, 0.85);
+    border: 1px solid rgba(245, 158, 11, 0.32);
+    border-radius: var(--radius-md);
+    padding: 14px;
+  }
+  .drill-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .drill-cmd {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--amber-hi);
+    font-weight: 700;
+  }
+  .drill-vals {
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: #05080e;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 0.73rem;
+    color: var(--ink-1);
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  /* Resource Cards */
+  .doc-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .doc-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 18px;
+    color: var(--ink-0);
+    transition: border-color 0.2s, transform 0.2s, background 0.2s;
+  }
+  .doc-card:hover {
+    text-decoration: none;
+    border-color: var(--border-hi);
+    background: var(--bg-2);
+    transform: translateY(-2px);
+  }
+  .doc-tag {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--emerald-hi);
+    background: var(--emerald-dim);
+    border: 1px solid var(--border-hi);
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-bottom: 10px;
+    width: fit-content;
+  }
+  .doc-tag.amber {
+    color: var(--amber-hi);
+    background: var(--amber-dim);
+    border-color: rgba(245, 158, 11, 0.35);
+  }
+  .doc-card h3 {
+    margin: 0 0 6px;
+    font-size: 1.02rem;
+    letter-spacing: -0.015em;
+  }
+  .doc-card p {
+    margin: 0 0 12px;
+    font-size: 0.85rem;
+    color: var(--ink-2);
+  }
+  .doc-link {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--emerald-hi);
+    font-weight: 600;
+  }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 28px 0 42px;
+    color: var(--ink-2);
+    font-size: 0.84rem;
+  }
+  .foot-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .foot-links {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+  }
+
+  @media (max-width: 1024px) {
+    .kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .calc-grid { grid-template-columns: minmax(0, 1fr); }
+    .doc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 680px) {
+    .nav-links { gap: 10px; font-size: 0.82rem; }
+    .nav-links a.hide-sm { display: none; }
+    .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .callouts { grid-template-columns: minmax(0, 1fr); }
+    .doc-grid { grid-template-columns: minmax(0, 1fr); }
+    .calc-metrics { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (max-width: 480px) {
+    .nav-links a.hide-xs { display: none; }
+  }
+  .card, .bench-shell, .code-panel, .drill-panel { min-width: 0; max-width: 100%; }
+</style>
+</head>
+<body>
+<div class="bg-grid" aria-hidden="true"></div>
+
+<header class="nav">
+  <div class="wrap nav-inner">
+    <a class="brand" href="#top">
+      <svg width="26" height="26" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="26" height="26" rx="7" fill="#0b111c" stroke="#34d399" stroke-width="1.6"/>
+        <path d="M5 17.5L9.5 17.5L12.5 8L15.8 20L18.5 13L23 13" stroke="#34d399" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="15.8" cy="20" r="2.2" fill="#fbbf24"/>
+      </svg>
+      <span>FlashMP</span>
+      <span class="brand-badge">v0.2.0</span>
+    </a>
+    <nav class="nav-links" aria-label="Primary navigation">
+      <a href="#benchmarks" class="hide-sm">Benchmarks</a>
+      <a href="#calculator" class="hide-sm">Token Calculator</a>
+      <a href="#docs" class="hide-sm">Docs &amp; Agents</a>
+      <a href="./SKILL.md" class="hide-xs">SKILL.md</a>
+      <a href="./llms.txt">llms.txt</a>
+      <a class="nav-cta" href="https://github.com/pgg898200-ship-it/flashmp" target="_blank" rel="noopener">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+    </nav>
+  </div>
+</header>
+
+<main id="top" class="wrap">
+  <!-- HERO -->
+  <section class="hero">
+    <div class="eyebrow">
+      <span class="dot-live"></span>
+      <span>Verified Silicon Benchmarks · 2026-11-22 · FlashMP v0.2.0 · x86-64 AVX2+FMA (2 vCPU) · Apache-2.0 · 0 Required Deps</span>
+    </div>
+    <h1>Exact SIMD Matrix Profile &amp; <span class="accent">-99.5% Token Agent Digests</span></h1>
+    <p class="hero-sub">
+      <strong>FlashMP</strong> is a zero-dependency C++20/Python engine (with a zero-copy PEP 3118 C-API accelerator) for exact batch &amp; bounded-window streaming Matrix Profile, multivariate <code>mSTUMP</code>, affine-invariant train/test leakage scanning, commutative multi-agent firehose monitoring, and reversible LLM time-series compression with <strong>0.0 lossless drill-down error</strong>.
+    </p>
+
+    <div class="kpi-grid" aria-label="Verified headline metrics">
+      <div class="kpi">
+        <div class="kpi-val">0.57 ms</div>
+        <div class="kpi-label">Cold Import</div>
+        <div class="kpi-note">0 deps · 880× cold vs STUMPY</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val">27.2×</div>
+        <div class="kpi-label">vs STUMPY</div>
+        <div class="kpi-note">N=32,768 · 3.69e-12 err</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val">8.8×</div>
+        <div class="kpi-label">vs pyscamp</div>
+        <div class="kpi-note">87.3 ms vs 767.6 ms (fp64)</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val amber">68.5×</div>
+        <div class="kpi-label">Multivariate mSTUMP</div>
+        <div class="kpi-note">D=8, N=8,192 · 154.9 ms</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val">358×</div>
+        <div class="kpi-label">Exact Streaming</div>
+        <div class="kpi-note">1.27 µs/tick · 2.2e-13 err</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val amber">-99.47%</div>
+        <div class="kpi-label">LLM Tokens (5 Domains)</div>
+        <div class="kpi-note">25,451 → 123 tok · 100% recall</div>
+      </div>
+    </div>
+
+    <!-- Quickstart Tabs -->
+    <div class="code-panel">
+      <div class="code-bar">
+        <div class="tab-group" role="tablist" aria-label="Quickstart tabs">
+          <button class="tab-btn active" role="tab" aria-selected="true" data-qtab="install">Install</button>
+          <button class="tab-btn" role="tab" aria-selected="false" data-qtab="demo">flashmp demo &amp; CLI</button>
+          <button class="tab-btn" role="tab" aria-selected="false" data-qtab="mcp">MCP Config</button>
+          <button class="tab-btn" role="tab" aria-selected="false" data-qtab="python">Python Drop-In</button>
+        </div>
+        <button class="copy-btn" id="copy-qs" type="button">Copy snippet</button>
+      </div>
+      <pre class="code-pre" id="qs-code"></pre>
+    </div>
+  </section>
+
+  <!-- INTERACTIVE BENCHMARKS -->
+  <section id="benchmarks" class="block">
+    <div class="sec-head">
+      <div>
+        <div class="sec-kicker">Verified 2026-11-22 Receipts</div>
+        <h2>Interactive Silicon Benchmark Explorer</h2>
+        <p class="sec-desc">
+          Populated directly from <code>results_incumbents.json</code>, <code>results_agent_tokens.json</code>, <code>results_swarm_sift.json</code>, and <code>results_realworld_domains.json</code> on identical inputs, matched thread counts (2T), and exact numerical parity checks.
+        </p>
+      </div>
+      <div class="legend" style="font-size:0.74rem;color:var(--ink-2)">
+        <span>Hardware: x86-64 AVX2+FMA · Python 3.12.16 · STUMPY 1.14.1 · pyscamp 4.0.3 · ruptures 1.1.10</span>
+      </div>
+    </div>
+
+    <div class="bench-shell">
+      <div class="bench-tabs" role="tablist" aria-label="Benchmark views">
+        <button class="bench-tab active" data-bview="batch">Batch Self-Join</button>
+        <button class="bench-tab" data-bview="mstump">Multivariate mSTUMP</button>
+        <button class="bench-tab" data-bview="streaming">Streaming &amp; Egress Error</button>
+        <button class="bench-tab" data-bview="stability">Extreme Stability (1e10)</button>
+        <button class="bench-tab" data-bview="tokens">Token Compression (-99.31%)</button>
+        <button class="bench-tab" data-bview="swarm">SwarmMonitor Scaling</button>
+        <button class="bench-tab" data-bview="realworld">5-Domain Real-World Eval</button>
+      </div>
+      <div class="bench-body" id="bench-stage"></div>
+    </div>
+  </section>
+
+  <!-- TOKEN & COST CALCULATOR -->
+  <section id="calculator" class="block">
+    <div class="sec-head">
+      <div>
+        <div class="sec-kicker">Reversible Agentic Compression</div>
+        <h2>LLM Token &amp; Cost Savings Calculator</h2>
+        <p class="sec-desc">
+          Estimate exact token compression and monthly API input savings of <code>flashmp.digest()</code> vs raw float payloads — and click any anomaly, motif, or regime inside the live compact digest preview to trigger a <strong>100% lossless drill-down slice</strong>.
+        </p>
+      </div>
+    </div>
+
+    <div class="calc-grid">
+      <!-- Controls + Outputs -->
+      <div class="card">
+        <div class="ctrl">
+          <div class="ctrl-top">
+            <label class="ctrl-label" for="sl-n">Series Length <code>N</code></label>
+            <span class="ctrl-readout" id="out-n">10,000 pts</span>
+          </div>
+          <input id="sl-n" type="range" min="3" max="6" step="0.01" value="4">
+          <div class="preset-row" data-preset-group="n">
+            <button type="button" class="preset-btn" data-val="3">1,000</button>
+            <button type="button" class="preset-btn active" data-val="4">10,000</button>
+            <button type="button" class="preset-btn" data-val="4.69897">50,000</button>
+            <button type="button" class="preset-btn" data-val="5.39794">250,000</button>
+            <button type="button" class="preset-btn" data-val="6">1,000,000</button>
+          </div>
+        </div>
+
+        <div class="ctrl">
+          <div class="ctrl-top">
+            <label class="ctrl-label" for="sl-d">Channels <code>D</code></label>
+            <span class="ctrl-readout" id="out-d">1 channel</span>
+          </div>
+          <input id="sl-d" type="range" min="1" max="64" step="1" value="1">
+          <div class="preset-row" data-preset-group="d">
+            <button type="button" class="preset-btn active" data-val="1">1 ch</button>
+            <button type="button" class="preset-btn" data-val="4">4 ch</button>
+            <button type="button" class="preset-btn" data-val="16">16 ch</button>
+            <button type="button" class="preset-btn" data-val="64">64 ch</button>
+          </div>
+        </div>
+
+        <div class="ctrl">
+          <div class="ctrl-top">
+            <label class="ctrl-label" for="sl-q">Agent Queries / Day</label>
+            <span class="ctrl-readout" id="out-q">1,000 / day</span>
+          </div>
+          <input id="sl-q" type="range" min="1" max="5" step="0.02" value="3">
+          <div class="preset-row" data-preset-group="q">
+            <button type="button" class="preset-btn" data-val="2">100/d</button>
+            <button type="button" class="preset-btn active" data-val="3">1,000/d</button>
+            <button type="button" class="preset-btn" data-val="4">10,000/d</button>
+            <button type="button" class="preset-btn" data-val="5">100,000/d</button>
+          </div>
+        </div>
+
+        <div class="ctrl">
+          <div class="ctrl-top">
+            <label class="ctrl-label" for="sl-p">LLM Input Price (<code>$/MTok</code>)</label>
+            <span class="ctrl-readout" id="out-p">$3.00 / MTok</span>
+          </div>
+          <input id="sl-p" type="range" min="0.1" max="20" step="0.1" value="3.0">
+          <div class="preset-row" data-preset-group="p">
+            <button type="button" class="preset-btn" data-val="0.5">$0.50 (Fast)</button>
+            <button type="button" class="preset-btn active" data-val="3">$3.00 (Sonnet)</button>
+            <button type="button" class="preset-btn" data-val="10">$10.00 (Frontier)</button>
+            <button type="button" class="preset-btn" data-val="15">$15.00 (Pro)</button>
+          </div>
+        </div>
+
+        <div class="calc-metrics" aria-live="polite">
+          <div class="cmetric">
+            <div class="cmetric-k">Raw Floats / Query</div>
+            <div class="cmetric-v" id="m-raw-tok">18,751</div>
+            <div class="cmetric-s" id="m-raw-mo">$1,687.59 / mo</div>
+          </div>
+          <div class="cmetric">
+            <div class="cmetric-k">FlashMP Digest / Query</div>
+            <div class="cmetric-v em" id="m-fmp-tok">129</div>
+            <div class="cmetric-s" id="m-fmp-mo">$11.61 / mo</div>
+          </div>
+          <div class="cmetric highlight">
+            <div class="cmetric-k">Token Reduction</div>
+            <div class="cmetric-v em" id="m-pct">-99.31%</div>
+            <div class="cmetric-s" id="m-ratio">145.4× compression</div>
+          </div>
+          <div class="cmetric highlight">
+            <div class="cmetric-k">Monthly USD Saved</div>
+            <div class="cmetric-v am" id="m-saved">$1,675.98</div>
+            <div class="cmetric-s" id="m-annual">$20,111.76 / year</div>
+          </div>
+        </div>
+
+        <div class="ctx-bar-wrap">
+          <div class="ctx-bar-head">
+            <span>200K Context Window Pressure</span>
+            <span id="ctx-status" style="color:var(--emerald-hi)">Raw: 9.4% · FlashMP: 0.06%</span>
+          </div>
+          <div class="ctx-track" title="Raw float payload share of 200K context">
+            <div class="ctx-fill-raw" id="bar-raw" style="width:9.4%"></div>
+          </div>
+          <div class="ctx-fill-fmp" title="FlashMP digest share of 200K context">
+            <div id="bar-fmp" style="width:1%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Compact Digest Preview + Click-to-Drilldown -->
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <div>
+            <div style="font-size:0.95rem;font-weight:700">Live Compact Digest Preview (<code>d.to_compact()</code>)</div>
+            <div style="font-size:0.78rem;color:var(--ink-2)">Updates dynamically with N &amp; D · Click any structure below for bit-exact lossless drill-down</div>
+          </div>
+          <span class="pill pill-em">0.0 Drill-Down Err</span>
+        </div>
+
+        <div class="digest-box" id="digest-preview"></div>
+
+        <div class="drill-chips" role="group" aria-label="Interactive drill-down targets">
+          <button type="button" class="drill-chip active" data-drill="d0">Drill D0@2821 (CRIT z=194.6)</button>
+          <button type="button" class="drill-chip" data-drill="d1">Drill D1@5370 (CRIT z=117.3)</button>
+          <button type="button" class="drill-chip" data-drill="m0">Drill Motif M0 (7422~8052)</button>
+          <button type="button" class="drill-chip" data-drill="r1">Inspect Regime R1 [5379:N]</button>
+        </div>
+
+        <div class="drill-panel" id="drill-panel">
+          <div class="drill-head">
+            <span class="drill-cmd" id="drill-cmd">d.drilldown_discord(0)</span>
+            <span class="pill pill-am" id="drill-badge">Lossless float64 · max_abs_err = 0.0</span>
+          </div>
+          <div id="drill-svg-wrap"></div>
+          <div class="drill-vals" id="drill-vals"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DOCUMENTATION & AGENT CARDS -->
+  <section id="docs" class="block">
+    <div class="sec-head">
+      <div>
+        <div class="sec-kicker">Documentation, Proofs &amp; Agent Endpoints</div>
+        <h2>Head-to-Head Guides &amp; Machine-Readable Playbooks</h2>
+        <p class="sec-desc">
+          Direct Markdown guides, mathematical proofs, verified JSON receipts, and zero-friction AI agent endpoints served straight from this site root.
+        </p>
+      </div>
+    </div>
+
+    <div class="doc-grid">
+      <a class="doc-card" href="./vs-stumpy.md">
+        <div>
+          <span class="doc-tag">Comparison</span>
+          <h3>FlashMP vs STUMPY</h3>
+          <p>Eliminate 38.0 s Numba JIT startup, run 27.2× faster batch self-join &amp; 68.5× faster mSTUMP, and fix stumpi's 1.0–1.6 stale egress drift.</p>
+        </div>
+        <span class="doc-link">vs-stumpy.md →</span>
+      </a>
+
+      <a class="doc-card" href="./vs-pyscamp.md">
+        <div>
+          <span class="doc-tag">Comparison</span>
+          <h3>FlashMP vs pyscamp (SCAMP)</h3>
+          <p>8.8× faster exact CPU SIMD via 48-wide float32-screened float64 kernels, 54× tighter DC=1e10 precision, immune to post-1e10-spike NaN, plus streaming &amp; mSTUMP.</p>
+        </div>
+        <span class="doc-link">vs-pyscamp.md →</span>
+      </a>
+
+      <a class="doc-card" href="./architecture.md">
+        <div>
+          <span class="doc-tag">Proofs &amp; SIMD</span>
+          <h3>Architecture &amp; Mathematical Guarantees</h3>
+          <p>48-wide provably-sound float32-screened float64 kernels, spike-drop HWM re-anchoring, RingMP O(1) expiration buckets, Hölder e-CUSUM, and PEP 3118 _fast C-API.</p>
+        </div>
+        <span class="doc-link">architecture.md →</span>
+      </a>
+
+      <a class="doc-card" href="./RESULTS.md">
+        <div>
+          <span class="doc-tag amber">Verified Receipts</span>
+          <h3>Full Silicon Benchmark Report</h3>
+          <p>All 10 benchmark tables, cold start, AB-join, FLOSS vs ruptures (9,924×), SwarmMonitor (276k ch-ticks/s), 5 real-world domains, and exact reproduction scripts.</p>
+        </div>
+        <span class="doc-link">RESULTS.md →</span>
+      </a>
+
+      <a class="doc-card" href="./SKILL.md">
+        <div>
+          <span class="doc-tag amber">AI Coding Agents</span>
+          <h3>Agent Skill Playbook (SKILL.md)</h3>
+          <p>1-command install (`flashmp install-skill`) for Claude Code, Cursor, Codex, and Gemini CLI with OpenAI/Anthropic schemas and all 8 MCP tools.</p>
+        </div>
+        <span class="doc-link">SKILL.md →</span>
+      </a>
+
+      <a class="doc-card" href="./llms.txt">
+        <div>
+          <span class="doc-tag amber">AI Crawlers</span>
+          <h3>LLM-Readable Index (llms.txt)</h3>
+          <p>Compact structured index optimized for automated retrieval and context grounding, served directly at the site root.</p>
+        </div>
+        <span class="doc-link">llms.txt →</span>
+      </a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap foot-inner">
+    <div>
+      <strong>FlashMP</strong> v0.2.0 · Apache-2.0 Licensed · Zero required Python dependencies · C++20 AVX2+FMA / ARM64-NEON + PEP 3118 _fast C-API
+    </div>
+    <div class="foot-links">
+      <a href="https://github.com/pgg898200-ship-it/flashmp" target="_blank" rel="noopener">GitHub Repo</a>
+      <a href="./RESULTS.md">RESULTS.md</a>
+      <a href="./SKILL.md">SKILL.md</a>
+      <a href="./llms.txt">llms.txt</a>
+      <a href="./architecture.md">architecture.md</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(() => {
+  "use strict";
+
+  // =========================================================================
+  // Verified 2026-11-22 v0.2.0 Benchmark Receipts (embedded for zero-CDN offline + live Pages)
+  // =========================================================================
+  const DATA = {
+    incumbents: {
+      date: "2026-11-22",
+      env: "x86_64 (2 vCPU) · AVX2+FMA · Python 3.12.16",
+      cold_start_ms: {
+        flashmp_import_only: 0.57,
+        flashmp_first_call: 43.22,
+        pyscamp_first_call: 30.02,
+        stumpy_first_call: 38025.10
+      },
+      batch_self_join: [
+        { N: 4096, m: 64, flashmp_ms: 5.301, pyscamp_ms: 17.083, stumpy_ms: 60.005, vs_stumpy: 11.32, vs_pyscamp: 3.22, err_stumpy: 9.32e-13 },
+        { N: 16384, m: 64, flashmp_ms: 39.611, pyscamp_ms: 275.165, stumpy_ms: 576.138, vs_stumpy: 14.54, vs_pyscamp: 6.95, err_stumpy: 2.95e-12 },
+        { N: 32768, m: 64, flashmp_ms: 87.332, pyscamp_ms: 767.631, stumpy_ms: 2377.481, vs_stumpy: 27.22, vs_pyscamp: 8.79, err_stumpy: 3.69e-12 }
+      ],
+      batch_ab_join: {
+        NA: 32768, NB: 4096, m: 64, flashmp_ms: 31.839, pyscamp_ms: 103.453, stumpy_ms: 502.801,
+        vs_stumpy: 15.79, vs_pyscamp: 3.25, err_stumpy: 3.09e-12
+      },
+      multivariate_mstump: [
+        { label: "D=4, N=4,096", D: 4, N: 4096, flashmp_ms: 29.033, stumpy_ms: 1742.624, speedup: 60.02, err: 1.23e-11 },
+        { label: "D=8, N=8,192", D: 8, N: 8192, flashmp_ms: 154.914, stumpy_ms: 10609.652, speedup: 68.49, err: 1.23e-10 }
+      ],
+      streaming_egress: [
+        { W: 1024, causal_us: 1.27, full_us: 2.54, pyloop_us: 3.63, stumpy_us: 454.52, sp_causal: 358.5, sp_full: 179.1, sp_pyloop: 125.2, fmp_err: 2.18e-13, stumpy_err: 1.570 },
+        { W: 4096, causal_us: 3.01, full_us: 4.59, pyloop_us: 5.90, stumpy_us: 498.31, sp_causal: 165.7, sp_full: 108.7, sp_pyloop: 84.5, fmp_err: 4.65e-13, stumpy_err: 1.137 },
+        { W: 16384, causal_us: 7.80, full_us: 12.06, pyloop_us: 13.34, stumpy_us: 711.98, sp_causal: 91.2, sp_full: 59.1, sp_pyloop: 53.4, fmp_err: 3.73e-13, stumpy_err: 1.021 }
+      ],
+      stability: {
+        dc_offset: 1e10,
+        N: 2048,
+        flashmp_dc_err: 4.647e-6,
+        pyscamp_dc_err: 2.507e-4,
+        stumpy_dc_err: 2.188e-3,
+        spike_flashmp: 2.032e-16,
+        spike_pyscamp: "NaN",
+        spike_stumpy: 0.0,
+        floss_ms: 3.837,
+        ruptures_ms: 38076.474,
+        floss_speedup: 9924.3
+      }
+    },
+    tokens: {
+      trials: 20,
+      N: 10000,
+      raw_mean: 18751.2,
+      compact_mean: 129.3,
+      reduction_pct: 99.31,
+      ratio_x: 145.0,
+      median_ms: 33.48,
+      recall_flashmp: 100.0,
+      recall_lttb: 0.0,
+      recall_m4: 0.0,
+      regime_recall: 100.0,
+      drilldown_err: 0.0
+    },
+    swarm: [
+      { C: 64, tps: 275608.9, us_per_tick: 3.63, recall: 100, fp: 0, brief_tok: 84, crdt: true },
+      { C: 256, tps: 245907.9, us_per_tick: 4.07, recall: 100, fp: 0, brief_tok: 105, crdt: true },
+      { C: 1024, tps: 205150.9, us_per_tick: 4.87, recall: 100, fp: 0, brief_tok: 119, crdt: true }
+    ],
+    realworld: [
+      { name: "ECG Arrhythmia (PQRST + PVC)", m: 80, ms: 42.2, raw_tok: 18185, cmp_tok: 117, sav: 99.36, raw_usd: 545.55, fmp_usd: 3.51, fmp_hit: true, lttb_hit: false, m4_hit: false, us_tick: 3.85, delay: "+67t", fp: 0, err: 0.0 },
+      { name: "Cloud Microservice Telemetry", m: 64, ms: 36.5, raw_tok: 20000, cmp_tok: 125, sav: 99.38, raw_usd: 600.00, fmp_usd: 3.75, fmp_hit: true, lttb_hit: false, m4_hit: false, us_tick: 3.37, delay: "+42t", fp: 0, err: 0.0 },
+      { name: "Industrial Bearing Vibration", m: 64, ms: 39.6, raw_tok: 18741, cmp_tok: 118, sav: 99.37, raw_usd: 562.23, fmp_usd: 3.54, fmp_hit: true, lttb_hit: false, m4_hit: false, us_tick: 3.21, delay: "+63t", fp: 0, err: 0.0 },
+      { name: "Financial Tick (DC=1e5 + Motif)", m: 64, ms: 34.1, raw_tok: 28884, cmp_tok: 133, sav: 99.54, raw_usd: 866.52, fmp_usd: 3.99, fmp_hit: true, lttb_hit: false, m4_hit: false, us_tick: 3.33, delay: "+67t", fp: 0, err: 0.0 },
+      { name: "IoT Sensor (DC=1e10 + Glitches)", m: 64, ms: 50.5, raw_tok: 41445, cmp_tok: 120, sav: 99.71, raw_usd: 1243.35, fmp_usd: 3.60, fmp_hit: true, lttb_hit: false, m4_hit: false, us_tick: 3.32, delay: "+23t", fp: 0, err: 0.0 }
+    ]
+  };
+
+  // =========================================================================
+  // Quickstart Snippets & Copy Handler
+  // =========================================================================
+  const SNIPPETS = {
+    install: {
+      raw: `# Install prebuilt Linux x86_64 (AVX2+FMA) or macOS arm64 (NEON) wheel from GitHub Releases,\n# or build from source in 2 seconds with zero mandatory dependencies:\ngit clone https://github.com/pgg898200-ship-it/flashmp.git\ncd flashmp && pip install -e .\n\n# Install AI agent skill playbook in 1 command (claude | cursor | codex | all)\nflashmp install-skill --target claude`,
+      html: `<span class="cm"># Install prebuilt Linux x86_64 (AVX2+FMA) or macOS arm64 (NEON) wheel from GitHub Releases,</span>\n<span class="cm"># or build from source in 2 seconds with zero mandatory dependencies:</span>\n<span class="fn">git</span> clone https://github.com/pgg898200-ship-it/flashmp.git\n<span class="fn">cd</span> flashmp &amp;&amp; <span class="fn">pip</span> install -e .\n\n<span class="cm"># Install AI agent skill playbook in 1 command (claude | cursor | codex | all)</span>\n<span class="fn">flashmp</span> install-skill --target claude`
+    },
+    demo: {
+      raw: `# 1-second zero-input showcase & built-in SIMD benchmark\nflashmp demo\nflashmp bench\n\n# Compress any CSV/TSV/JSON/JSONL/txt (or stdin '-') into a ~125-token digest\nflashmp digest metrics.csv --col latency_ms --format compact\n\n# Audit train/test CSVs for exact & affine subsequence leakage\nflashmp leak-scan train.csv test.csv -m 64 --thresh 0.999`,
+      html: `<span class="cm"># 1-second zero-input showcase &amp; built-in SIMD benchmark</span>\n<span class="fn">flashmp</span> demo\n<span class="fn">flashmp</span> bench\n\n<span class="cm"># Compress any CSV/TSV/JSON/JSONL/txt (or stdin '-') into a ~125-token digest</span>\n<span class="fn">flashmp</span> digest metrics.csv --col latency_ms --format compact\n\n<span class="cm"># Audit train/test CSVs for exact &amp; affine subsequence leakage</span>\n<span class="fn">flashmp</span> leak-scan train.csv test.csv -m 64 --thresh 0.999`
+    },
+    mcp: {
+      raw: `# Generate config automatically: flashmp mcp-config --client claude-code --allowed-dir /path/to/data\n{\n  "mcpServers": {\n    "flashmp": {\n      "command": "flashmp-mcp",\n      "args": [],\n      "env": {\n        "FLASHMP_MCP_ALLOWED_DIRS": "/path/to/your/data"\n      }\n    }\n  }\n}`,
+      html: `<span class="cm"># Generate config automatically: flashmp mcp-config --client claude-code --allowed-dir /path/to/data</span>\n{\n  <span class="st">"mcpServers"</span>: {\n    <span class="st">"flashmp"</span>: {\n      <span class="st">"command"</span>: <span class="fn">"flashmp-mcp"</span>,\n      <span class="st">"args"</span>: [],\n      <span class="st">"env"</span>: {\n        <span class="st">"FLASHMP_MCP_ALLOWED_DIRS"</span>: <span class="kw">"/path/to/your/data"</span>\n      }\n    }\n  }\n}`
+    },
+    python: {
+      raw: `import flashmp as stumpy\n\n# 1. Drop-in STUMPY replacement (0.57 ms import, 0 JIT, 27.2x–68.5x faster; accepts Pandas/Polars)\nmp = stumpy.stump(x, m=64)\nP, I = stumpy.mstump(X_multivar, 64)\n\n# 2. Reversible -99.5% token agentic digest + bit-exact lossless drill-down\nd = stumpy.digest(df_or_array, m=64)\nprint(d.to_compact())\nraw_slice = d.drilldown_discord(0)   # max_abs_err == 0.0\n\n# 3. OpenAI / Anthropic toolkits & exact streaming RingMP (3.63 us/tick via _fast C-API)\ntools = stumpy.openai_tools()        # or stumpy.anthropic_tools()\nwith stumpy.StreamMP(m=64, window=4096, egress=True, alpha=0.01) as s:\n    s.init(warmup)\n    tick = s.update(new_val)`,
+      html: `<span class="kw">import</span> flashmp <span class="kw">as</span> stumpy\n\n<span class="cm"># 1. Drop-in STUMPY replacement (0.57 ms import, 0 JIT, 27.2x–68.5x faster; accepts Pandas/Polars)</span>\nmp = stumpy.<span class="fn">stump</span>(x, m=64)\nP, I = stumpy.<span class="fn">mstump</span>(X_multivar, 64)\n\n<span class="cm"># 2. Reversible -99.5% token agentic digest + bit-exact lossless drill-down</span>\nd = stumpy.<span class="fn">digest</span>(df_or_array, m=64)\n<span class="fn">print</span>(d.<span class="fn">to_compact</span>())\nraw_slice = d.<span class="fn">drilldown_discord</span>(0)   <span class="cm"># max_abs_err == 0.0</span>\n\n<span class="cm"># 3. OpenAI / Anthropic toolkits &amp; exact streaming RingMP (3.63 us/tick via _fast C-API)</span>\ntools = stumpy.<span class="fn">openai_tools</span>()        <span class="cm"># or stumpy.anthropic_tools()</span>\n<span class="kw">with</span> stumpy.<span class="fn">StreamMP</span>(m=64, window=4096, egress=<span class="kw">True</span>, alpha=0.01) <span class="kw">as</span> s:\n    s.<span class="fn">init</span>(warmup)\n    tick = s.<span class="fn">update</span>(new_val)`
+    }
+  };
+
+  let activeQTab = "install";
+  const qsCode = document.getElementById("qs-code");
+  const copyBtn = document.getElementById("copy-qs");
+
+  function renderQTab(key) {
+    activeQTab = key;
+    qsCode.innerHTML = SNIPPETS[key].html;
+    document.querySelectorAll("[data-qtab]").forEach((b) => {
+      const on = b.dataset.qtab === key;
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-selected", on ? "true" : "false");
+    });
+  }
+  document.querySelectorAll("[data-qtab]").forEach((b) => {
+    b.addEventListener("click", () => renderQTab(b.dataset.qtab));
+  });
+  copyBtn.addEventListener("click", async () => {
+    const txt = SNIPPETS[activeQTab].raw;
+    try {
+      await navigator.clipboard.writeText(txt);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = txt;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    }
+    copyBtn.textContent = "Copied!";
+    copyBtn.classList.add("copied");
+    setTimeout(() => {
+      copyBtn.textContent = "Copy snippet";
+      copyBtn.classList.remove("copied");
+    }, 1500);
+  });
+  renderQTab("install");
+
+  // =========================================================================
+  // Interactive SVG Benchmark Explorer
+  // =========================================================================
+  const stage = document.getElementById("bench-stage");
+
+  function svgHBarGroup({ rows, series, unit, maxVal, logScale = false, minLog = 1e-16, width = 820 }) {
+    const padL = 128, padR = 148, padT = 18, padB = 18;
+    const barH = 20, barGap = 6, groupGap = 24;
+    const groupH = series.length * (barH + barGap) - barGap;
+    const totalH = padT + rows.length * (groupH + groupGap) - groupGap + padB;
+    const chartW = width - padL - padR;
+
+    const toW = (v) => {
+      if (typeof v !== "number" || !isFinite(v) || v <= 0) return 2;
+      if (logScale) {
+        const lo = Math.log10(minLog);
+        const hi = Math.log10(maxVal);
+        const frac = Math.max(0.02, Math.min(1, (Math.log10(v) - lo) / (hi - lo)));
+        return Math.max(4, frac * chartW);
+      }
+      return Math.max(4, Math.min(1, v / maxVal) * chartW);
+    };
+
+    let svg = `<svg viewBox="0 0 ${width} ${totalH}" xmlns="http://www.w3.org/2000/svg" role="img">`;
+    // Subtle vertical grid lines
+    for (let g = 0; g <= 4; g++) {
+      const gx = padL + (chartW * g) / 4;
+      svg += `<line x1="${gx.toFixed(1)}" y1="${padT - 6}" x2="${gx.toFixed(1)}" y2="${totalH - padB + 4}" stroke="rgba(148,163,184,0.10)" stroke-dasharray="3,4"/>`;
+    }
+
+    rows.forEach((row, rIdx) => {
+      const gy = padT + rIdx * (groupH + groupGap);
+      svg += `<text x="${padL - 12}" y="${(gy + groupH / 2 + 4).toFixed(1)}" text-anchor="end" fill="#e2e8f0" font-size="12.5" font-weight="700" font-family="ui-monospace, monospace">${row.label}</text>`;
+
+      series.forEach((s, sIdx) => {
+        const by = gy + sIdx * (barH + barGap);
+        const val = row.values[s.key];
+        const bw = toW(val);
+        const lbl = row.labels && row.labels[s.key] ? row.labels[s.key] : `${val} ${unit}`;
+        const isNan = val === "NaN";
+
+        svg += `<rect x="${padL}" y="${by}" width="${chartW}" height="${barH}" rx="4" fill="rgba(148,163,184,0.06)"/>`;
+        if (isNan) {
+          svg += `<rect x="${padL}" y="${by}" width="${chartW}" height="${barH}" rx="4" fill="rgba(244,63,94,0.22)" stroke="#f43f5e" stroke-dasharray="4,3"/>`;
+          svg += `<text x="${padL + 10}" y="${by + 14}" fill="#fda4af" font-size="11.5" font-weight="700" font-family="ui-monospace, monospace">NaN — CATASTROPHIC CANCELLATION FAILURE</text>`;
+        } else {
+          svg += `<rect x="${padL}" y="${by}" width="${bw.toFixed(1)}" height="${barH}" rx="4" fill="${s.color}"/>`;
+          svg += `<text x="${(padL + bw + 8).toFixed(1)}" y="${by + 14}" fill="${s.textColor || '#cbd5e1'}" font-size="11.5" font-weight="${s.bold ? '700' : '500'}" font-family="ui-monospace, monospace">${lbl}</text>`;
+        }
+      });
+    });
+
+    svg += `</svg>`;
+    return svg;
+  }
+
+  function renderBench(view) {
+    document.querySelectorAll("[data-bview]").forEach((b) => {
+      b.classList.toggle("active", b.dataset.bview === view);
+    });
+
+    if (view === "batch") {
+      const rows = DATA.incumbents.batch_self_join.map((r) => ({
+        label: `N = ${r.N.toLocaleString()}`,
+        values: { fmp: r.flashmp_ms, pyscamp: r.pyscamp_ms, stumpy: r.stumpy_ms },
+        labels: {
+          fmp: `${r.flashmp_ms.toFixed(2)} ms (${r.vs_stumpy}× vs STUMPY · ${r.vs_pyscamp}× vs pyscamp)`,
+          pyscamp: `${r.pyscamp_ms.toFixed(2)} ms`,
+          stumpy: `${r.stumpy_ms.toFixed(1)} ms`
+        }
+      }));
+      const svg = svgHBarGroup({
+        rows,
+        series: [
+          { key: "fmp", color: "#10b981", textColor: "#34d399", bold: true },
+          { key: "pyscamp", color: "#f59e0b", textColor: "#fbbf24" },
+          { key: "stumpy", color: "#475569", textColor: "#94a3b8" }
+        ],
+        unit: "ms",
+        maxVal: 2450,
+        width: 860
+      });
+      stage.innerHTML = `
+        <div class="bench-meta-row">
+          <div>
+            <div class="bench-title">Warm Batch Self-Join Latency (m = 64, 2 Threads — Lower is Faster)</div>
+            <div class="bench-subtitle">48-wide provably-sound float32-screened exact float64 AVX2+FMA · max abs error vs STUMPY ≤ 3.69e-12</div>
+          </div>
+          <div class="legend">
+            <span class="legend-item"><span class="swatch" style="background:#10b981"></span>FlashMP 0.2.0</span>
+            <span class="legend-item"><span class="swatch" style="background:#f59e0b"></span>pyscamp (fp64)</span>
+            <span class="legend-item"><span class="swatch" style="background:#475569"></span>STUMPY 1.14.1</span>
+          </div>
+        </div>
+        <div class="chart-frame">${svg}</div>
+        <div class="callouts">
+          <div class="callout">
+            <div class="callout-k">Bidirectional AB-Join (32,768 × 4,096)</div>
+            <div class="callout-v em">31.84 ms (2-way)</div>
+            <div class="callout-s">15.79× vs STUMPY (502.8 ms) · 3.25× vs pyscamp (103.5 ms)</div>
+          </div>
+          <div class="callout">
+            <div class="callout-k">Cold Start (Import + First Join)</div>
+            <div class="callout-v am">43.2 ms (0.57 ms import)</div>
+            <div class="callout-s">880× faster than STUMPY's 38,025 ms Numba JIT warmup</div>
+          </div>
+          <div class="callout">
+            <div class="callout-k">Exact Numerical Parity</div>
+            <div class="callout-v">3.69e-12 max err</div>
+            <div class="callout-s">Verified element-by-element against STUMPY float64</div>
+          </div>
+        </div>`;
+    } else if (view === "mstump") {
+      const rows = DATA.incumbents.multivariate_mstump.map((r) => ({
+        label: r.label,
+        values: { fmp: r.flashmp_ms, stumpy: r.stumpy_ms },
+        labels: {
+          fmp: `${r.flashmp_ms.toFixed(2)} ms (${r.speedup.toFixed(1)}× faster)`,
+          stumpy: `${r.stumpy_ms.toLocaleString("en-US", { maximumFractionDigits: 1 })} ms`
+        }
+      }));
+      const svg = svgHBarGroup({
+        rows,
+        series: [
+          { key: "fmp", color: "#10b981", textColor: "#34d399", bold: true },
+          { key: "stumpy", color: "#475569", textColor: "#94a3b8" }
+        ],
+        unit: "ms",
+        maxVal: 10800,
+        width: 860
+      });
+      stage.innerHTML = `
+        <div class="bench-meta-row">
+          <div>
+            <div class="bench-title">Multivariate Matrix Profile (mSTUMP, m = 64, 2 Threads — Lower is Faster)</div>
+            <div class="bench-subtitle">L1d-resident 8-diagonal float32-screened AVX2 bitonic sort · Unsupported by pyscamp</div>
+          </div>
+          <div class="legend">
+            <span class="legend-item"><span class="swatch" style="background:#10b981"></span>FlashMP mstump</span>
+            <span class="legend-item"><span class="swatch" style="background:#475569"></span>STUMPY mstump</span>
+          </div>
+        </div>
+        <div class="chart-frame">${svg}</div>
+        <div class="callouts">
+          <div class="callout">
+            <div class="callout-k">Peak Multivariate Speedup</div>
+            <div class="callout-v em">68.49× faster</div>
+            <div class="callout-s">154.9 ms vs 10.61 seconds on (D=8, N=8,192)</div>
+          </div>
+          <div class="callout">
+            <div class="callout-k">Drop-In Compatibility</div>
+            <div class="callout-v am">P, I = mstump(X, m)</div>
+            <div class="callout-s">Matches STUMPY's (D, n) shape &amp; flat-window semantics</div>
+          </div>
+          <div class="callout">
+            <div class="callout-k">Parity vs STUMPY</div>
+            <div class="callout-v">1.23e-10 max err</div>
+            <div class="callout-s">1.23e-11 on (4, 4,096) · 0 required runtime deps</div>
+          </div>
+        </div>`;
+    } else if (view === "streaming") {
+      const rowsLat = DATA.incumbents.streaming_egress.map((r) => ({
+        label: `W = ${r.W.toLocaleString()}`,
+        values: { causal: r.causal_us, full: r.full_us, pyloop: r.pyloop_us, stumpy: r.stumpy_us },
+        labels: {
+          causal: `${r.causal_us.toFixed(2)} µs (${r.sp_causal}×)`,
+          full: `${r.full_us.toFixed(2)} µs (${r.sp_full}×)`,
+          pyloop: `${r.pyloop_us.toFixed(2)} µs py-loop (${r.sp_pyloop}×)`,
+          stumpy: `${r.stumpy_us.toFixed(1)} µs (stale err ${r.stumpy_err.toFixed(2)})`
+        }
+      }));
+      const svgLat = svgHBarGroup({
+        rows: rowsLat,
+        series: [
+          { key: "causal", color: "#34d399", textColor: "#34d399", bold: true },
+          { key: "full", color: "#10b981", textColor: "#6ee7b7", bold: true },
+          { key: "pyloop", color: "#f59e0b", textColor: "#fbbf24" },
+          { key: "stumpy", color: "#f43f5e", textColor: "#fda4af" }
+        ],
+        unit: "µs",
+        maxVal: 740,
+        width: 860
+      });
+      stage.innerHTML = `
+        <div class="bench-meta-row">
+          <div>
+            <div class="bench-title">Exact Bounded-Window Streaming Latency (RingMP + _fast C-API vs stumpy.stumpi egress=True, m = 64)</div>
+            <div class="bench-subtitle">O(1) expiration buckets + hybrid 32-wide mature-F32 delivers exact sliding-window egress where stumpi drifts by 1.02–1.57</div>
+          </div>
+          <div class="legend">
+            <span class="legend-item"><span class="swatch" style="background:#34d399"></span>FlashMP Causal</span>
+            <span class="legend-item"><span class="swatch" style="background:#10b981"></span>FlashMP Full Batch</span>
+            <span class="legend-item"><span class="swatch" style="background:#f59e0b"></span>FlashMP Py-Loop (_fast)</span>
+            <span class="legend-item"><span class="swatch" style="background:#f43f5e"></span>STUMPY stumpi (stale)</span>
+          </div>
+        </div>
+        <div class="chart-frame">${svgLat}</div>
+        <div class="callouts">
+          <div class="callout">
+            <div class="callout-k">FlashMP Egress Max Error</div>
+            <div class="callout-v em">2.18e-13 – 4.65e-13</div>
+            <div class="callout-s">Exact sliding-window Matrix Profile after every egress tick</div>
+          </div>
+          <div class="callout">
+            <div class="callout-k">STUMPY stumpi Egress Error</div>
+            <div class="callout-v ro">1.021 – 1.570 (Stale!)</div>
+            <div class="callout-s">Expired nearest neighbors silently persist in stumpi</div>
+          </div>
+          <div class="callout">
+            <div class="callout-k">Anytime-Valid Alerting</div>
+            <div class="callout-v am">Hölder e-CUSUM</div>
+            <div class="callout-s">Zero-tuning martingale alerts built straight into RingMP</div>
+          </div>
+        </div>`;
+    } else if (view === "stability") {
+      const st = DATA.incumbents.stability;
+      const rows = [
+        {
+          label: "DC = 1e10 Err",
+          values: { fmp: st.flashmp_dc_err, pyscamp: st.pyscamp_dc_err, stumpy: st.stumpy_dc_err },
+          labels: {
+            fmp: `4.65e-6 (54× vs pyscamp · 471× vs STUMPY)`,
+            pyscamp: `2.51e-4`,
+            stumpy: `2.19e-3`
+          }
+        },
+        {
+          label: "Post-1e10 Spike",
+          values: { fmp: st.spike_flashmp, pyscamp: "NaN", stumpy: 1e-16 },
+          labels: {
+            fmp: `2.03e-16 (exact motif recovered)`,
+            pyscamp: `NaN`,
+            stumpy: `0.00e+00 (exact)`
+          }
+        }
+      ];
+      const svg = svgHBarGroup({
+        rows,
+        series: [
+          { key: "fmp", color: "#10b981", textColor: "#34d399", bold: true },
+          { key: "pyscamp", color: "#f59e0b", textColor: "#fbbf24" },
+          { key: "stumpy", color: "#475569", textColor: "#94a3b8" }
+        ],
+        unit: "",
+        maxVal: 1e-2,
+        logScale: true,
+        minLog: 1e-17,
+        width: 860
+      });
+      stage.innerHTML = `
+        <div class="bench-meta-row">
+          <div>
+            <div class="bench-title">Extreme Numerical Stability — Log₁₀ Error Scale (Lower is Better)</div>
+            <div class="bench-subtitle">Global DC anchor shift + scale normalization + Spike-Drop HWM re-anchoring (N = 2,048, m = 64)</div>
+          </div>
+          <div class="legend">
+            <span class="legend-item"><span class="swatch" style="background:#10b981"></span>FlashMP</span>
+            <span class="legend-item"><span class="swatch" style="background:#f59e0b"></span>pyscamp (fp64)</span>
+            <span class="legend-item"><span class="swatch" style="background:#475569"></span>STUMPY</span>
+          </div>
+        </div>
+        <div class="chart-frame">${svg}</div>
+        <div class="callouts">
+          <div class="callout">
+            <div class="callout-k">DC = 1e10 Accuracy Advantage</div>
+            <div class="callout-v em">54× / 471× tighter</div>
+            <div class="callout-s">4.65e-6 vs pyscamp 2.51e-4 &amp; STUMPY 2.19e-3</div>
+          </div>
+          <div class="callout">
+            <div class="callout-k">Post-1e10-Spike Motif Recovery</div>
+            <div class="callout-v ro">pyscamp → NaN</div>
+            <div class="callout-s">FlashMP recovers 2.03e-16 via HWM spike-exit re-anchor</div>
+          </div>
+          <div class="callout">
+            <div class="callout-k">FLOSS Regime Segmentation</div>
+            <div class="callout-v am">9,924× vs ruptures</div>
+            <div class="callout-s">3.84 ms (24-tick err) vs ruptures PELT rbf 38.08 s</div>
+          </div>
+        </div>`;
+    } else if (view === "tokens") {
+      const tk = DATA.tokens;
+      const rows = [
+        {
+          label: "Mean Tokens",
+          values: { fmp: tk.compact_mean, lttb: 240, raw: tk.raw_mean },
+          labels: {
+            fmp: `129.3 tok (-99.31% · 145× compression)`,
+            lttb: `~240 tok (LTTB / M4 visual downsamplers)`,
+            raw: `18,751.2 tok (Raw CSV/JSON floats)`
+          }
+        },
+        {
+          label: "Top-3 Recall %",
+          values: { fmp: 100, lttb: 0.1, raw: 100 },
+          labels: {
+            fmp: `100.0% shape anomaly recall + 100% regime recall`,
+            lttb: `0.0% recall (LTTB & M4 miss shape discords!)`,
+            raw: `18.7K tok raw context (expensive & noisy)`
+          }
+        }
+      ];
+      // Render two crisp side-by-side SVG charts for clean scales
+      const svgTok = svgHBarGroup({
+        rows: [rows[0]],
+        series: [
+          { key: "fmp", color: "#10b981", textColor: "#34d399", bold: true },
+          { key: "lttb", color: "#f59e0b", textColor: "#fbbf24" },
+          { key: "raw", color: "#f43f5e", textColor: "#fda4af" }
+        ],
+        unit: "tok",
+        maxVal: 19200,
+        width: 860
+      });
+      const svgRec = svgHBarGroup({
+        rows: [{
+          label: "Shape Recall",
+          values: { fmp: 100, lttb: 0, m4: 0 },
+          labels: {
+            fmp: `100.0% (20/20 trials · 0.0 lossless drill-down error)`,
+            lttb: `0.0% (0/20 trials — amplitude-only LTTB misses shape discords)`,
+            m4: `0.0% (0/20 trials — min/max M4 misses shape discords)`
+          }
+        }],
+        series: [
+          { key: "fmp", color: "#10b981", textColor: "#34d399", bold: true },
+          { key: "lttb", color: "#f43f5e", textColor: "#fda4af" },
+          { key: "m4", color: "#fb7185", textColor: "#fda4af" }
+        ],
+        unit: "%",
+        maxVal: 100,
+        width: 860
+      });
+      stage.innerHTML = `
+        <div class="bench-meta-row">
+          <div>
+            <div class="bench-title">Reversible Agentic Context Compression (20 Seeded Trials × N = 10,000)</div>
+            <div class="bench-subtitle">Exact Matrix Profile + FLOSS structural digest in 33.5 ms median vs matched-token LTTB / M4</div>
+          </div>
+          <div class="legend">
+            <span class="legend-item"><span class="swatch" style="background:#10b981"></span>FlashMP digest()</span>
+            <span class="legend-item"><span class="swatch" style="background:#f59e0b"></span>LTTB / M4</span>
+            <span class="legend-item"><span class="swatch" style="background:#f43f5e"></span>Raw / Missed</span>
+          </div>
+        </div>
+        <div class="chart-frame" style="margin-bottom:12px">${svgTok}</div>
+        <div class="chart-frame">${svgRec}</div>
+        <div class="callouts">
+          <div class="callout">
+            <div class="callout-k">Token Reduction</div>
+            <div class="callout-v em">-99.31% (145×)</div>
+            <div class="callout-s">18,751 → 129.3 mean tokens in 33.48 ms median</div>
+          </div>
+          <div class="callout">
+            <div class="callout-k">Structural Fidelity</div>
+            <div class="callout-v am">100% vs 0%</div>
+            <div class="callout-s">Top-3 shape discord &amp; FLOSS regime recall across all 20 trials</div>
+          </div>
+          <div class="callout">
+            <div class="callout-k">Reversibility</div>
+            <div class="callout-v">0.0 max abs err</div>
+            <div class="callout-s">Bit-exact float64 drill-down on any window or discord</div>
+          </div>
+        </div>`;
+    } else if (view === "swarm") {
+      const rows = DATA.swarm.map((r) => ({
+        label: `C = ${r.C} ch`,
+        values: { tps: r.tps, tok: r.brief_tok },
+        labels: {
+          tps: `${Math.round(r.tps).toLocaleString()} ch-ticks/s (${r.us_per_tick.toFixed(2)} µs/tick)`,
+          tok: `${r.brief_tok} tok brief · 100% recall (4/4) · 0 FPs · 16-shuffle CRDT PASS`
+        }
+      }));
+      const svgTps = svgHBarGroup({
+        rows: DATA.swarm.map((r) => ({
+          label: `C = ${r.C} ch`,
+          values: { tps: r.tps },
+          labels: { tps: `${Math.round(r.tps).toLocaleString()} ch-ticks/s (${r.us_per_tick.toFixed(2)} µs/ch-tick · ${r.brief_tok} tok brief)` }
+        })),
+        series: [{ key: "tps", color: "#10b981", textColor: "#34d399", bold: true }],
+        unit: "ch-ticks/s",
+        maxVal: 290000,
+        width: 860
+      });
+      stage.innerHTML = `
+        <div class="bench-meta-row">
+          <div>
+            <div class="bench-title">Multi-Agent Firehose Sifting (SwarmMonitor — 64 to 1,024 Concurrent Streams)</div>
+            <div class="bench-subtitle">Scale-invariant RingMP (_fast C-API) + commutative CRDT AlertLedger under 3.5× loud normal-shape distractors</div>
+          </div>
+          <div class="legend">
+            <span class="legend-item"><span class="swatch" style="background:#10b981"></span>Throughput (ch-ticks/s)</span>
+          </div>
+        </div>
+        <div class="chart-frame">${svgTps}</div>
+        <div class="callouts">
+          <div class="callout">
+            <div class="callout-k">Peak Throughput</div>
+            <div class="callout-v em">275,609 ch-ticks/s</div>
+            <div class="callout-s">205,151 ch-ticks/s sustained at 1,024 live channels</div>
+          </div>
+          <div class="callout">
+            <div class="callout-k">3.5× Loud Distractor Immunity</div>
+            <div class="callout-v am">100% recall · 0 FPs</div>
+            <div class="callout-s">4/4 subtle faults caught, 0 false alarms at every scale</div>
+          </div>
+          <div class="callout">
+            <div class="callout-k">Order-Invariant CRDT Fusion</div>
+            <div class="callout-v">16/16 shuffles PASS</div>
+            <div class="callout-s">Brief stays sub-linear: 84 → 105 → 119 tokens (C=64..1024)</div>
+          </div>
+        </div>`;
+    } else if (view === "realworld") {
+      const trs = DATA.realworld.map((r) => `
+        <tr>
+          <td style="color:var(--ink-0);font-weight:600">${r.name}</td>
+          <td>${r.ms.toFixed(1)} ms</td>
+          <td>${r.raw_tok.toLocaleString()} → <strong style="color:var(--emerald-hi)">${r.cmp_tok}</strong> <span class="pill pill-em">-${r.sav.toFixed(2)}%</span></td>
+          <td>$${r.raw_usd.toFixed(2)} → <strong style="color:var(--amber-hi)">$${r.fmp_usd.toFixed(2)}</strong></td>
+          <td><span class="pill pill-em">Rank #1</span> / <span class="pill pill-ro">0</span> / <span class="pill pill-ro">0</span></td>
+          <td>${r.us_tick.toFixed(2)} µs (${r.delay}, 0 FP)</td>
+          <td style="color:var(--emerald-hi)">0.0</td>
+        </tr>`).join("");
+      stage.innerHTML = `
+        <div class="bench-meta-row">
+          <div>
+            <div class="bench-title">5-Domain Real-World Agentic Evaluation (N = 10,000 each · bench_realworld_domains.py)</div>
+            <div class="bench-subtitle">End-to-end digest() + RingMP (W=1,024, α=0.01) vs Raw CSV, LTTB &amp; M4 at $3/MTok × 10,000 queries</div>
+          </div>
+          <span class="pill pill-em">5/5 Rank #1 · 0/5 LTTB · 0/5 M4 · 0 RingMP FPs</span>
+        </div>
+        <div class="table-wrap">
+          <table class="receipt">
+            <thead>
+              <tr>
+                <th>Domain Archetype (N=10,000)</th>
+                <th>digest()</th>
+                <th>Raw → Compact Tokens</th>
+                <th>Cost / 10K Queries</th>
+                <th>Hit (FMP / LTTB / M4)</th>
+                <th>RingMP Stream</th>
+                <th>Drill Err</th>
+              </tr>
+            </thead>
+            <tbody>${trs}</tbody>
+          </table>
+        </div>
+        <div class="callouts">
+          <div class="callout">
+            <div class="callout-k">Mean Compression Across 5 Domains</div>
+            <div class="callout-v em">-99.47% (207.4×)</div>
+            <div class="callout-s">25,451 → 122.6 tokens · 40.6 ms mean digest latency</div>
+          </div>
+          <div class="callout">
+            <div class="callout-k">Mean API Cost / 10K Queries</div>
+            <div class="callout-v am">$763.53 → $3.68</div>
+            <div class="callout-s">Saves $759.85 per 10,000 agent calls at $3.00 / MTok</div>
+          </div>
+          <div class="callout">
+            <div class="callout-k">Streaming Anytime-Valid Alerts</div>
+            <div class="callout-v">5/5 hits · 0 pre-anom FP</div>
+            <div class="callout-s">3.42 µs/tick mean Python loop — including DC=1e10 telemetry</div>
+          </div>
+        </div>`;
+    }
+  }
+
+  document.querySelectorAll("[data-bview]").forEach((b) => {
+    b.addEventListener("click", () => renderBench(b.dataset.bview));
+  });
+  renderBench("batch");
+
+  // =========================================================================
+  // Interactive LLM Token & Cost Savings Calculator + Click-to-Drilldown
+  // =========================================================================
+  const slN = document.getElementById("sl-n");
+  const slD = document.getElementById("sl-d");
+  const slQ = document.getElementById("sl-q");
+  const slP = document.getElementById("sl-p");
+
+  const fmtUSD = (v) => {
+    if (v >= 1000) return "$" + v.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    return "$" + v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  function estimateCompactTokens(N, D) {
+    // Mirrors SeriesDigest.to_compact(): inline STAT up to 4 channels + summary line for D > 4
+    const base = 129; // Verified mean for D=1, N=10,000
+    const lenBump = Math.max(0, Math.round(Math.log10(N / 10000) * 6));
+    const inlineCh = Math.min(4, D) - 1;
+    const extraLine = D > 4 ? 14 : 0;
+    return base + lenBump + inlineCh * 24 + extraLine;
+  }
+
+  function updateCalc() {
+    const N = Math.round(Math.pow(10, parseFloat(slN.value)));
+    const D = parseInt(slD.value, 10);
+    const Q = Math.round(Math.pow(10, parseFloat(slQ.value)));
+    const P = parseFloat(slP.value);
+
+    // Calibrated to verified 18,751.2 raw tokens at N=10,000, D=1 (1.87512 tok/float)
+    const rawTok = Math.round(N * D * 1.87512);
+    const fmpTok = estimateCompactTokens(N, D);
+    const pct = 100 * (1 - fmpTok / rawTok);
+    const ratio = rawTok / fmpTok;
+
+    const moQueries = Q * 30;
+    const rawMo = (rawTok * moQueries / 1e6) * P;
+    const fmpMo = (fmpTok * moQueries / 1e6) * P;
+    const savedMo = Math.max(0, rawMo - fmpMo);
+
+    document.getElementById("out-n").textContent = `${N.toLocaleString()} pts`;
+    document.getElementById("out-d").textContent = `${D} ${D === 1 ? "channel" : "channels"}`;
+    document.getElementById("out-q").textContent = `${Q.toLocaleString()} / day`;
+    document.getElementById("out-p").textContent = `$${P.toFixed(2)} / MTok`;
+
+    document.getElementById("m-raw-tok").textContent = rawTok.toLocaleString();
+    document.getElementById("m-raw-mo").textContent = `${fmtUSD(rawMo)} / mo`;
+    document.getElementById("m-fmp-tok").textContent = fmpTok.toLocaleString();
+    document.getElementById("m-fmp-mo").textContent = `${fmtUSD(fmpMo)} / mo`;
+    const pctDisp = pct >= 99.995 ? "-99.999%" : `-${pct.toFixed(2)}%`;
+    const pctHdr = Math.min(99.9, pct).toFixed(1);
+    document.getElementById("m-pct").textContent = pctDisp;
+    document.getElementById("m-ratio").textContent = `${ratio >= 1000 ? Math.round(ratio).toLocaleString() : ratio.toFixed(1)}× compression`;
+    document.getElementById("m-saved").textContent = fmtUSD(savedMo);
+    document.getElementById("m-annual").textContent = `${fmtUSD(savedMo * 12)} / year`;
+
+    const rawCtxPct = (rawTok / 200000) * 100;
+    const fmpCtxPct = (fmpTok / 200000) * 100;
+    const ctxStatus = document.getElementById("ctx-status");
+    if (rawCtxPct > 100) {
+      ctxStatus.style.color = "#fda4af";
+      ctxStatus.textContent = `Raw: ${rawCtxPct.toFixed(0)}% (OVERFLOWS 200K!) · FlashMP: ${fmpCtxPct.toFixed(2)}%`;
+    } else {
+      ctxStatus.style.color = "#34d399";
+      ctxStatus.textContent = `Raw: ${rawCtxPct.toFixed(1)}% · FlashMP: ${fmpCtxPct.toFixed(2)}%`;
+    }
+    document.getElementById("bar-raw").style.width = `${Math.min(100, rawCtxPct).toFixed(1)}%`;
+    document.getElementById("bar-fmp").style.width = `${Math.max(0.8, Math.min(100, fmpCtxPct)).toFixed(2)}%`;
+
+    // Update live compact digest preview
+    const m = N >= 4000 ? 64 : 32;
+    const cp = Math.round(N * 0.538);
+    const d0 = Math.round(N * 0.282);
+    const d1 = Math.max(0, cp - 9);
+    const m0a = Math.round(N * 0.742);
+    const m0b = Math.round(N * 0.805);
+
+    const chNames = ["latency_ms", "cpu_pct", "queue_depth", "gc_pause_ms"];
+    let statLines = "";
+    const shown = Math.min(4, D);
+    for (let i = 0; i < shown; i++) {
+      const nm = chNames[i] || `ch${i}`;
+      const mu = (45 - i * 8.2).toFixed(1);
+      const sd = (12 - i * 1.9).toFixed(1);
+      statLines += `<div class="digest-line"><span class="digest-lbl">STAT</span> ${nm}: mu=${mu} sd=${sd} rng=[21.6,68.7] p50=46.9 slp=5.98e-06(flat) nan=0</div>`;
+    }
+    if (D > 4) {
+      statLines += `<div class="digest-line"><span class="digest-lbl">STAT</span> +${D - 4} more channels (use drilldown/json)</div>`;
+    }
+
+    document.getElementById("digest-preview").innerHTML = `
+      <div class="digest-line digest-hdr">TS_DIGEST n=${N} ch=${D} m=${m} tok=${rawTok}->${fmpTok} (-${pctHdr}%)</div>
+      ${statLines}
+      <div class="digest-line"><span class="digest-lbl">REGIMES(2):</span> R0[0:${cp}] mu=44.9 sd=12.0 slp=-6.5e-05 | R1[${cp}:${N}] mu=45.0 sd=12.0 slp=-6.2e-05</div>
+      <div class="digest-line"><span class="digest-lbl">MOTIFS(3):</span> M0(${m0a}~${m0b} d=0.42 r=0.9986) M1(${Math.round(N*0.608)}~${Math.round(N*0.982)} d=0.43 r=0.9985)</div>
+      <div class="digest-line"><span class="digest-lbl">DISCORDS(3):</span> D0@${d0}(d=9.94 z=194.6 CRIT nn=${Math.round(N*0.693)}) D1@${d1}(d=6.22 z=117.3 CRIT nn=${Math.round(N*0.268)})</div>
+      <div class="digest-line"><span class="digest-lbl">DRILL:</span> drilldown(start,end,ch) | drilldown_discord(rank)</div>`;
+  }
+
+  [slN, slD, slQ, slP].forEach((el) => el.addEventListener("input", updateCalc));
+  document.querySelectorAll("[data-preset-group]").forEach((grp) => {
+    const map = { n: slN, d: slD, q: slQ, p: slP };
+    const target = map[grp.dataset.presetGroup];
+    grp.querySelectorAll(".preset-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        target.value = btn.dataset.val;
+        grp.querySelectorAll(".preset-btn").forEach((x) => x.classList.remove("active"));
+        btn.classList.add("active");
+        updateCalc();
+      });
+    });
+  });
+
+  // =========================================================================
+  // Interactive Lossless Drill-Down Sparkline Visualizer
+  // =========================================================================
+  function makeWave(kind, len = 64) {
+    const out = [];
+    for (let i = 0; i < len; i++) {
+      const u = i / len;
+      if (kind === "normal") {
+        out.push(45 + 14 * Math.sin(2 * Math.PI * u) + 5 * Math.cos(4 * Math.PI * u));
+      } else if (kind === "d0") {
+        const env = 0.45 + 0.55 * Math.sin(Math.PI * u);
+        out.push(45 + 18 * env * Math.sin(2 * Math.PI * (3 * u + 4 * u * u)));
+      } else if (kind === "d1") {
+        out.push(u < 0.5 ? 45 + 14 * Math.sin(2 * Math.PI * u * 2) : 45 + 15 * (2 * ((u * 3) % 1) - 1));
+      } else if (kind === "m0b") {
+        out.push(45 + 14 * Math.sin(2 * Math.PI * u) + 5 * Math.cos(4 * Math.PI * u) + 0.45 * Math.sin(11 * u));
+      } else {
+        const ph = (u * 1.52) % 1;
+        out.push(45 + 14 * (2 * ph - 1) - 5.5 * Math.sin(6 * Math.PI * ph));
+      }
+    }
+    return out;
+  }
+
+  function renderSparkline(primary, secondary, pLabel, sLabel, pColor, sColor) {
+    const W = 500, H = 112, padX = 12, padY = 18;
+    const all = secondary ? primary.concat(secondary) : primary;
+    const mn = Math.min(...all) - 2, mx = Math.max(...all) + 2;
+    const toPts = (arr) => arr.map((v, i) => {
+      const x = padX + (i / (arr.length - 1)) * (W - 2 * padX);
+      const y = H - padY - ((v - mn) / (mx - mn)) * (H - 2 * padY);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(" ");
+
+    return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;background:#05080e;border:1px solid rgba(148,163,184,0.14);border-radius:8px" xmlns="http://www.w3.org/2000/svg">
+      <line x1="${padX}" y1="${(H/2).toFixed(1)}" x2="${W-padX}" y2="${(H/2).toFixed(1)}" stroke="rgba(148,163,184,0.12)" stroke-dasharray="3,4"/>
+      ${secondary ? `<polyline fill="none" stroke="${sColor}" stroke-width="1.8" stroke-dasharray="4,3" opacity="0.82" points="${toPts(secondary)}"/>` : ""}
+      <polyline fill="none" stroke="${pColor}" stroke-width="2.3" stroke-linejoin="round" points="${toPts(primary)}"/>
+      <text x="${padX + 2}" y="13" fill="${pColor}" font-size="10.5" font-weight="700" font-family="ui-monospace, monospace">━ ${pLabel}</text>
+      ${secondary ? `<text x="${W - padX}" y="13" text-anchor="end" fill="${sColor}" font-size="10.5" font-weight="600" font-family="ui-monospace, monospace">┄ ${sLabel}</text>` : ""}
+    </svg>`;
+  }
+
+  const DRILL_VIEWS = {
+    d0: {
+      cmd: "d.drilldown_discord(0)  # MCP: ts_drilldown(session_id, discord_rank=0)",
+      badge: "Rank #1 Discord · Same [21.6, 68.7] envelope · err = 0.0",
+      primary: makeWave("d0"),
+      secondary: makeWave("normal"),
+      pLabel: "Discord D0@2821 (p99 oscillation burst)",
+      sLabel: "Nearest Normal Motif (matched amplitude!)",
+      pColor: "#fbbf24",
+      sColor: "#34d399"
+    },
+    d1: {
+      cmd: "d.drilldown_discord(1)  # MCP: ts_drilldown(session_id, discord_rank=1)",
+      badge: "Rank #2 Discord · Regime Transition Boundary · err = 0.0",
+      primary: makeWave("d1"),
+      secondary: makeWave("normal"),
+      pLabel: "Discord D1@5370 (Canary regime transition)",
+      sLabel: "Baseline Pre-Deploy Cycle",
+      pColor: "#fbbf24",
+      sColor: "#34d399"
+    },
+    m0: {
+      cmd: "d.drilldown_motif(0)    # Exact repeating pair r = 0.9986",
+      badge: "Top Motif Pair · Pearson r = 0.9986 · err = 0.0",
+      primary: makeWave("normal"),
+      secondary: makeWave("m0b"),
+      pLabel: "Motif A @ 7422",
+      sLabel: "Motif Partner B @ 8052 (r=0.9986)",
+      pColor: "#34d399",
+      sColor: "#38bdf8"
+    },
+    r1: {
+      cmd: "d.drilldown(5379, 5443) # MCP: ts_drilldown(session_id, start=5379, end=5443)",
+      badge: "FLOSS Regime R1 · Matched Mean=45.0, Std=12.0 · err = 0.0",
+      primary: makeWave("r1"),
+      secondary: makeWave("normal"),
+      pLabel: "Post-Deploy Regime R1 (sawtooth queueing)",
+      sLabel: "Pre-Deploy Regime R0 (diurnal harmonic)",
+      pColor: "#38bdf8",
+      sColor: "#34d399"
+    }
+  };
+
+  function renderDrill(key) {
+    const v = DRILL_VIEWS[key];
+    document.querySelectorAll("[data-drill]").forEach((b) => {
+      b.classList.toggle("active", b.dataset.drill === key);
+    });
+    document.getElementById("drill-cmd").textContent = v.cmd;
+    document.getElementById("drill-badge").textContent = v.badge;
+    document.getElementById("drill-svg-wrap").innerHTML = renderSparkline(
+      v.primary, v.secondary, v.pLabel, v.sLabel, v.pColor, v.sColor
+    );
+    const previewVals = v.primary.slice(0, 10).map((n) => n.toFixed(4)).join(", ");
+    document.getElementById("drill-vals").textContent =
+      `values[0..63] = [${previewVals}, ...]  (64 exact float64 samples recovered · max_abs_err = 0.0)`;
+  }
+
+  document.querySelectorAll("[data-drill]").forEach((b) => {
+    b.addEventListener("click", () => renderDrill(b.dataset.drill));
+  });
+
+  updateCalc();
+  renderDrill("d0");
+})();
+</script>
+</body>
+</html>

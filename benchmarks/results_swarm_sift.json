@@ -1,12 +1,12 @@
 {
-  "timestamp_utc": "2026-11-22T18:46:36.438608+00:00",
+  "timestamp_utc": "2026-11-22T22:32:19.902752+00:00",
   "firehose_scaling": [
     {
       "channels": 64,
       "live_ticks": 120,
-      "elapsed_ms": 55.33,
-      "channel_ticks_per_sec": 138801.4,
-      "us_per_channel_tick": 7.2,
+      "elapsed_ms": 27.87,
+      "channel_ticks_per_sec": 275608.9,
+      "us_per_channel_tick": 3.63,
       "fault_recall": 1.0,
       "tp_found": 4,
       "total_faults": 4,
@@ -17,9 +17,9 @@
     {
       "channels": 256,
       "live_ticks": 120,
-      "elapsed_ms": 233.3,
-      "channel_ticks_per_sec": 131676.7,
-      "us_per_channel_tick": 7.59,
+      "elapsed_ms": 124.92,
+      "channel_ticks_per_sec": 245907.9,
+      "us_per_channel_tick": 4.07,
       "fault_recall": 1.0,
       "tp_found": 4,
       "total_faults": 4,
@@ -30,9 +30,9 @@
     {
       "channels": 1024,
       "live_ticks": 120,
-      "elapsed_ms": 1184.5,
-      "channel_ticks_per_sec": 103740.2,
-      "us_per_channel_tick": 9.64,
+      "elapsed_ms": 598.97,
+      "channel_ticks_per_sec": 205150.9,
+      "us_per_channel_tick": 4.87,
       "fault_recall": 1.0,
       "tp_found": 4,
       "total_faults": 4,

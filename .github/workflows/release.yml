@@ -1,0 +1,306 @@
+name: Release FlashMP (Multi-Platform Native Wheels & GitHub Release)
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      publish_tag:
+        description: "Optional tag name to publish a GitHub Release (leave empty for build & test dry run)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build-sdist:
+    name: Build Source Distribution (sdist)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Clean prebuilt binaries and build portable sdist
+        run: |
+          rm -f src/flashmp/_csrc/*.so src/flashmp/_csrc/*.dylib src/flashmp/_csrc/*.dll src/flashmp/_fast*.so src/flashmp/_fast*.pyd
+          python3 -m pip install --upgrade pip build
+          python3 -m build --sdist --outdir dist/
+          ls -lh dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flashmp-sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  build-wheels:
+    name: Build & Verify (${{ matrix.os_label }}-${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            os_label: linux
+            arch: x86_64
+            lib_name: libflashmp.so
+            lib_ext: so
+            wheel_platform: manylinux_2_35_x86_64
+            expected_isa: AVX2+FMA
+          - os: macos-latest
+            os_label: macos
+            arch: arm64
+            lib_name: libflashmp.dylib
+            lib_ext: dylib
+            wheel_platform: macosx_11_0_arm64
+            expected_isa: ARM64-NEON
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile C++20 native library & _fast extension (Linux x86_64 AVX2+FMA)
+        if: matrix.os_label == 'linux'
+        run: |
+          g++ -O3 -march=x86-64-v3 -std=c++20 -fno-math-errno -funroll-loops -pthread -fPIC -shared \
+            -Wall -Wextra -Werror \
+            src/flashmp/_csrc/flashmp.cpp -o src/flashmp/_csrc/libflashmp.so
+          EXT_SUFFIX=$(python3 -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))")
+          PY_INC=$(python3 -c "import sysconfig; print(sysconfig.get_path('include'))")
+          g++ -O3 -march=x86-64-v3 -std=c++20 -fno-math-errno -pthread -fPIC -shared \
+            -Wall -Wextra -Werror \
+            -I"$PY_INC" -Isrc/flashmp/_csrc \
+            src/flashmp/_csrc/_fast.cpp \
+            -Lsrc/flashmp/_csrc -lflashmp \
+            -Wl,-rpath,'$ORIGIN/_csrc' \
+            -o "src/flashmp/_fast${EXT_SUFFIX}"
+          ls -lh src/flashmp/_csrc/libflashmp.so "src/flashmp/_fast${EXT_SUFFIX}"
+
+      - name: Compile C++20 native library & _fast extension (macOS arm64 Apple Silicon NEON)
+        if: matrix.os_label == 'macos'
+        run: |
+          clang++ -O3 -std=c++20 -mmacosx-version-min=11.0 -fno-math-errno -funroll-loops -pthread -fPIC -dynamiclib \
+            -install_name @rpath/libflashmp.dylib \
+            -Wall -Wextra -Werror \
+            src/flashmp/_csrc/flashmp.cpp -o src/flashmp/_csrc/libflashmp.dylib
+          EXT_SUFFIX=$(python3 -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))")
+          PY_INC=$(python3 -c "import sysconfig; print(sysconfig.get_path('include'))")
+          clang++ -O3 -std=c++20 -mmacosx-version-min=11.0 -fno-math-errno -pthread -fPIC -bundle \
+            -undefined dynamic_lookup -Wall -Wextra -Werror \
+            -I"$PY_INC" -Isrc/flashmp/_csrc \
+            src/flashmp/_csrc/_fast.cpp \
+            -Lsrc/flashmp/_csrc -lflashmp \
+            -Wl,-rpath,@loader_path/_csrc \
+            -o "src/flashmp/_fast${EXT_SUFFIX}"
+          ls -lh src/flashmp/_csrc/libflashmp.dylib "src/flashmp/_fast${EXT_SUFFIX}"
+          otool -L src/flashmp/_csrc/libflashmp.dylib "src/flashmp/_fast${EXT_SUFFIX}"
+
+      - name: Test bare-stdlib zero-dependency mode (no NumPy, prebuilt native binary)
+        run: |
+          CXX=/nonexistent PYTHONPATH=src python3 -c "
+          import time
+          t0 = time.perf_counter()
+          import flashmp
+          dt = (time.perf_counter() - t0) * 1e3
+          isa = flashmp.simd_isa()
+          fast_ok = flashmp._native.get_fast() is not None
+          print(f'cold import: {dt:.2f} ms | version={flashmp.version()} | isa={isa} | fast={fast_ok}')
+          assert dt < 50.0, f'cold import too slow: {dt:.2f} ms'
+          assert isa == '${{ matrix.expected_isa }}', f'unexpected ISA: {isa}'
+          assert fast_ok, 'Expected _fast C-API extension to load!'
+          "
+          CXX=/nonexistent PYTHONPATH=src python3 -m flashmp.cli demo
+
+      - name: Build platform-tagged Python wheel & standalone native artifact
+        env:
+          WHEEL_PLATFORM: ${{ matrix.wheel_platform }}
+          LIB_NAME: ${{ matrix.lib_name }}
+          OS_LABEL: ${{ matrix.os_label }}
+          ARCH_LABEL: ${{ matrix.arch }}
+          LIB_EXT: ${{ matrix.lib_ext }}
+        run: |
+          python3 -m pip install --upgrade pip build
+          python3 -m build --wheel --outdir dist_raw/
+          mkdir -p dist/
+          python3 - <<'PY'
+          import base64
+          import csv
+          import hashlib
+          import io
+          import os
+          import zipfile
+          from pathlib import Path
+
+          plat = os.environ["WHEEL_PLATFORM"]
+          lib_name = os.environ["LIB_NAME"]
+          raw_wheels = sorted(Path("dist_raw").glob("*.whl"))
+          assert len(raw_wheels) == 1, f"Expected 1 built wheel, found {raw_wheels}"
+          src_whl = raw_wheels[0]
+
+          stem_parts = src_whl.stem.split("-")
+          assert len(stem_parts) >= 5, f"Unexpected wheel filename: {src_whl.name}"
+          dst_name = f"{stem_parts[0]}-{stem_parts[1]}-py3-none-{plat}.whl"
+          dst_whl = Path("dist") / dst_name
+
+          found_lib = False
+          found_fast = False
+          found_skill = False
+          records: list[tuple[str, str, str]] = []
+          record_path = ""
+
+          with zipfile.ZipFile(src_whl, "r") as zin, zipfile.ZipFile(
+              dst_whl, "w", compression=zipfile.ZIP_DEFLATED
+          ) as zout:
+              for info in zin.infolist():
+                  name = info.filename
+                  if name.endswith(f"_csrc/{lib_name}"):
+                      found_lib = True
+                  if "/_fast." in name and (name.endswith(".so") or name.endswith(".pyd")):
+                      found_fast = True
+                  if name.endswith("flashmp/SKILL.md"):
+                      found_skill = True
+                  if name.endswith(".dist-info/RECORD"):
+                      record_path = name
+                      continue
+                  data = zin.read(name)
+                  if name.endswith(".dist-info/WHEEL"):
+                      lines = []
+                      for line in data.decode("utf-8").splitlines():
+                          if line.startswith("Root-Is-Purelib:"):
+                              lines.append("Root-Is-Purelib: false")
+                          elif line.startswith("Tag:"):
+                              lines.append(f"Tag: py3-none-{plat}")
+                          else:
+                              lines.append(line)
+                      data = ("\n".join(lines) + "\n").encode("utf-8")
+
+                  new_info = zipfile.ZipInfo(filename=name, date_time=info.date_time)
+                  new_info.compress_type = zipfile.ZIP_DEFLATED
+                  new_info.external_attr = info.external_attr
+                  zout.writestr(new_info, data)
+
+                  digest = base64.urlsafe_b64encode(hashlib.sha256(data).digest()).rstrip(b"=").decode("ascii")
+                  records.append((name, f"sha256={digest}", str(len(data))))
+
+              assert found_lib, f"Native library _csrc/{lib_name} missing from built wheel!"
+              assert found_fast, "Zero-copy C-API _fast extension missing from built wheel!"
+              assert found_skill, "Bundled flashmp/SKILL.md missing from built wheel!"
+              assert record_path, "Missing .dist-info/RECORD in wheel"
+              records.append((record_path, "", ""))
+
+              buf = io.StringIO()
+              writer = csv.writer(buf, lineterminator="\n")
+              for row in records:
+                  writer.writerow(row)
+              zout.writestr(record_path, buf.getvalue().encode("utf-8"))
+
+          print(f"Built platform wheel: {dst_whl} ({dst_whl.stat().st_size} bytes)")
+          PY
+          cp "src/flashmp/_csrc/${LIB_NAME}" "dist/libflashmp-${OS_LABEL}-${ARCH_LABEL}.${LIB_EXT}"
+          ls -lh dist/
+
+      - name: Verify installed wheel in isolated venv (bare-stdlib)
+        run: |
+          python3 -m venv /tmp/wheel-venv
+          /tmp/wheel-venv/bin/pip install --no-deps dist/*.whl
+          (
+            cd /tmp
+            CXX=/nonexistent /tmp/wheel-venv/bin/python -c "
+            import flashmp
+            print('Installed file:', flashmp.__file__)
+            assert 'site-packages' in flashmp.__file__
+            assert flashmp.simd_isa() == '${{ matrix.expected_isa }}'
+            assert flashmp._native.get_fast() is not None
+            res = flashmp.profile([float(i % 7) for i in range(64)], m=8)
+            assert len(res.mp) == 57
+            print('Wheel bare-stdlib verification passed:', flashmp.version(), flashmp.simd_isa())
+            "
+            CXX=/nonexistent /tmp/wheel-venv/bin/flashmp demo
+            CXX=/nonexistent /tmp/wheel-venv/bin/flashmp install-skill --target claude --dest-dir /tmp/wheel-skill-check
+            test -f /tmp/wheel-skill-check/flashmp/SKILL.md
+          )
+
+      - name: Run full pytest suite (NumPy + exactness + streaming + sanitizers + red-team)
+        run: |
+          python3 -m pip install numpy pytest
+          PYTHONPATH=src pytest tests/ -v
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flashmp-${{ matrix.os_label }}-${{ matrix.arch }}
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: [build-sdist, build-wheels]
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.publish_tag != '')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release_assets
+          merge-multiple: true
+
+      - name: Generate SHA256SUMS.txt and structured release notes
+        env:
+          RELEASE_TAG: ${{ inputs.publish_tag || github.ref_name }}
+        run: |
+          (
+            cd release_assets
+            LC_ALL=C ls -1 | grep -v '^SHA256SUMS.txt$' | xargs sha256sum > SHA256SUMS.txt
+          )
+          cat release_assets/SHA256SUMS.txt
+
+          cat > RELEASE_NOTES.md <<EOF
+          # FlashMP ${RELEASE_TAG}
+
+          **Zero-dependency C++20 SIMD exact batch & bounded-window streaming Matrix Profile, multivariate \`mSTUMP\`, affine-invariant data-leakage scanning, reversible \`-99.3%\` token agentic digests, and commutative multi-agent firehose monitoring.**
+
+          ## Release Artifacts
+
+          - **Linux \`x86_64\` Wheel (\`AVX2+FMA\`)**: \`flashmp-*-py3-none-manylinux_2_35_x86_64.whl\`
+          - **macOS \`arm64\` Wheel (\`Apple Silicon NEON\`)**: \`flashmp-*-py3-none-macosx_11_0_arm64.whl\`
+          - **Portable Source Distribution**: \`flashmp-*.tar.gz\`
+          - **Standalone Native Shared Libraries (C-ABI FFI)**: \`libflashmp-linux-x86_64.so\`, \`libflashmp-macos-arm64.dylib\`
+          - **Checksums**: \`SHA256SUMS.txt\`
+
+          ### Quick Install
+
+          \`\`\`bash
+          # Verify integrity
+          sha256sum -c SHA256SUMS.txt
+
+          # Install platform wheel (zero mandatory dependencies)
+          pip install flashmp-*-py3-none-*.whl
+
+          # Run 1-second showcase & benchmark
+          flashmp demo
+          flashmp bench
+          \`\`\`
+
+          ---
+
+          EOF
+          cat benchmarks/RESULTS.md >> RELEASE_NOTES.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.publish_tag || github.ref_name }}
+          name: FlashMP ${{ inputs.publish_tag || github.ref_name }}
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: false
+          files: release_assets/*

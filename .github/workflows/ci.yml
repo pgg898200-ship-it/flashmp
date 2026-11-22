@@ -14,15 +14,26 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Build C++20 release library
+      - name: Build C++20 release library and zero-copy C-API accelerator (_fast)
         run: |
           g++ -O3 -march=x86-64-v3 -std=c++20 -fno-math-errno -funroll-loops -pthread -fPIC -shared -Wall -Wextra -Werror \
             src/flashmp/_csrc/flashmp.cpp -o src/flashmp/_csrc/libflashmp.so
+          EXT_SUFFIX=$(python3 -c "import sysconfig; print(sysconfig.get_config_var('EXT_SUFFIX'))")
+          PY_INC=$(python3 -c "import sysconfig; print(sysconfig.get_path('include'))")
+          g++ -O3 -march=x86-64-v3 -std=c++20 -fno-math-errno -pthread -fPIC -shared -Wall -Wextra -Werror \
+            -I"$PY_INC" -Isrc/flashmp/_csrc \
+            src/flashmp/_csrc/_fast.cpp \
+            -Lsrc/flashmp/_csrc -lflashmp \
+            -Wl,-rpath,'$ORIGIN/_csrc' \
+            -o "src/flashmp/_fast${EXT_SUFFIX}"
 
       - name: Test zero-dependency pure-stdlib mode (no NumPy)
         run: |
-          PYTHONPATH=src python3 -c "import time; t0=time.perf_counter(); import flashmp; dt=(time.perf_counter()-t0)*1e3; print(f'cold import: {dt:.2f} ms'); assert dt < 25.0"
+          PYTHONPATH=src python3 -c "import time; t0=time.perf_counter(); import flashmp; dt=(time.perf_counter()-t0)*1e3; print(f'cold import: {dt:.2f} ms | isa={flashmp.simd_isa()} | fast={flashmp._native.get_fast() is not None}'); assert dt < 25.0; assert flashmp._native.get_fast() is not None"
           PYTHONPATH=src python3 -m flashmp.cli demo
+          PYTHONPATH=src python3 -m flashmp.cli mcp-config --client claude-code
+          PYTHONPATH=src python3 -m flashmp.cli install-skill --target claude --dest-dir /tmp/ci-skill-check
+          PYTHONPATH=src python3 tests/test_integrations_and_fast.py
 
       - name: Install optional NumPy + pytest and run full verification suite
         run: |

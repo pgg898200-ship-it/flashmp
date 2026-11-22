@@ -261,6 +261,26 @@ def _configure_bindings(lib: ctypes.CDLL) -> ctypes.CDLL:
     return lib
 
 
+_FAST_CHECKED = False
+_FAST_MOD: Any | None = None
+
+
+def get_fast() -> Any | None:
+    """Return the zero-copy PEP 3118 CPython C-API module (_fast) unless FLASHMP_LIB overrides it."""
+    global _FAST_CHECKED, _FAST_MOD
+    if os.environ.get("FLASHMP_LIB"):
+        return None
+    if not _FAST_CHECKED:
+        _FAST_CHECKED = True
+        try:
+            from . import _fast as fast_mod  # type: ignore[attr-defined]
+
+            _FAST_MOD = fast_mod
+        except Exception:
+            _FAST_MOD = None
+    return _FAST_MOD
+
+
 def get_lib() -> ctypes.CDLL:
     """Return the loaded native flashmp shared library, building it if missing."""
     global _LIB_CACHE
@@ -283,12 +303,18 @@ def get_lib() -> ctypes.CDLL:
 
 def version() -> str:
     """Return the native flashmp library version string."""
+    fast = get_fast()
+    if fast is not None:
+        return str(fast.version())
     raw = get_lib().fmp_version()
-    return raw.decode("utf-8") if raw else "0.1.0"
+    return raw.decode("utf-8") if raw else "0.2.0"
 
 
 def simd_isa() -> str:
     """Return the compiled SIMD instruction set identifier (e.g. AVX2+FMA, ARM64-NEON)."""
+    fast = get_fast()
+    if fast is not None:
+        return str(fast.simd_isa())
     raw = get_lib().fmp_simd_isa()
     return raw.decode("utf-8") if raw else "SCALAR"
 
@@ -333,6 +359,7 @@ def _as_c_double_array(data: Any) -> tuple[Any, int, Any, bool]:
     """Convert 1D numeric input to (c_double*, length, owner_keepalive, is_numpy).
 
     Zero-copy for C-contiguous, aligned float64 NumPy ndarrays and array.array('d').
+    Also supports duck-typed Pandas/Polars Series & DataFrames without importing them.
     """
     if isinstance(data, (str, bytes, bytearray, bool)):
         raise TypeError(f"Expected 1D numeric sequence, got {type(data).__name__}")
@@ -352,6 +379,15 @@ def _as_c_double_array(data: Any) -> tuple[Any, int, Any, bool]:
 
     if isinstance(data, array.array) and data.typecode == "d":
         return _array_ptr(data, _DOUBLE_PTR), len(data), data, False
+
+    if not isinstance(data, (list, tuple)) and (
+        hasattr(data, "columns") or hasattr(data, "to_numpy") or hasattr(data, "to_list")
+    ):
+        from .integrations import extract_series
+
+        extracted = extract_series(data)
+        if extracted is not data:
+            return _as_c_double_array(extracted)
 
     if np is not None and hasattr(data, "__array__"):
         raw_arr = np.asarray(data)
