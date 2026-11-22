@@ -236,6 +236,11 @@ jobs:
           PYTHONPATH=src python3 -m pytest tests/ -v --tb=short 2>&1 | tee /tmp/pytest_out.txt
           RC=${PIPESTATUS[0]}
           set -e
+          if [ "$RC" -ne 0 ]; then
+            grep -E "^(FAILED|E   )" /tmp/pytest_out.txt | head -n 20 | while IFS= read -r line; do
+              echo "::error title=pytest (${{ matrix.os_label }}-${{ matrix.arch }})::${line}"
+            done
+          fi
           {
             echo "### Pytest (${{ matrix.os_label }}-${{ matrix.arch }}) — exit ${RC}"
             echo '```text'

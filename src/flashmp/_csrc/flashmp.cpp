@@ -282,7 +282,7 @@ SeriesPrep precompute_series(const double* T, int64_t N, int64_t m) {
         return p;
     }
 
-    const double inv_m = 1.0 / static_cast<double>(m);
+    const double dm = static_cast<double>(m);
     const double* u = p.u_ptr();
 
     // Rolling Neumaier-compensated mean + periodic exact re-anchor every kReanchorStats.
@@ -306,7 +306,7 @@ SeriesPrep precompute_series(const double* T, int64_t N, int64_t m) {
         }
         run_sum = s;
         run_comp = c;
-        double mean_i = (s + c) * inv_m;
+        double mean_i = (s + c) / dm;
         double ss = 0.0;
         double sc = 0.0;
         for (int64_t k = 0; k < m; ++k) {
@@ -342,7 +342,7 @@ SeriesPrep precompute_series(const double* T, int64_t N, int64_t m) {
                 run_comp += (delta - t) + run_sum;
             }
             run_sum = t;
-            double new_mu = (run_sum + run_comp) * inv_m;
+            double new_mu = (run_sum + run_comp) / dm;
             mu_a[i] = new_mu;
             run_var += (x_in - new_mu) * (x_in - old_mu) - (x_out - new_mu) * (x_out - old_mu);
             if (run_var > peak_var) peak_var = run_var;
@@ -404,7 +404,7 @@ SeriesPrep precompute_series(const double* T, int64_t N, int64_t m) {
         for (int64_t k = 0; k < m; ++k) {
             s += u[j + k];
         }
-        mu_a[j] = s * inv_m;
+        mu_a[j] = s / dm;
     }
     for (int64_t i = -kSeriesPad; i + 1 < p.n; ++i) {
         double x_out = u[i];
@@ -529,9 +529,9 @@ static inline double exact_unit_half_dist_scalar(const double* a, const double* 
         sum_a += a[k];
         sum_b += b[k];
     }
-    const double inv_m = 1.0 / static_cast<double>(m);
-    const double ma = sum_a * inv_m;
-    const double mb = sum_b * inv_m;
+    const double dm = static_cast<double>(m);
+    const double ma = sum_a / dm;
+    const double mb = sum_b / dm;
     double va = 0.0, vb = 0.0;
     for (int64_t k = 0; k < m; ++k) {
         double da = a[k] - ma;
@@ -4886,7 +4886,7 @@ struct fmp_stream {
 
         // Exact integer tracking of non-finite count in trailing m-tick window
         bool any_bad = (bad_in_cur_win > 0);
-        const double inv_m = 1.0 / static_cast<double>(m);
+        const double dm = static_cast<double>(m);
 
         auto exact_mean_var = [&](double& out_mean, double& out_var) {
 #if defined(FMP_HAS_AVX2)
@@ -4905,7 +4905,7 @@ struct fmp_stream {
             _mm256_store_pd(tmp, s0);
             double sum = (tmp[0] + tmp[1]) + (tmp[2] + tmp[3]);
             for (; k < m; ++k) sum += x[k];
-            out_mean = sum * inv_m;
+            out_mean = sum / dm;
             last_sum = sum;
 
             __m256d vmu = _mm256_set1_pd(out_mean);
@@ -4942,7 +4942,7 @@ struct fmp_stream {
             s0 = vaddq_f64(s0, s1);
             double sum = vgetq_lane_f64(s0, 0) + vgetq_lane_f64(s0, 1);
             for (; k < m; ++k) sum += x[k];
-            out_mean = sum * inv_m;
+            out_mean = sum / dm;
             last_sum = sum;
             float64x2_t vmu = vdupq_n_f64(out_mean);
             float64x2_t v0 = vdupq_n_f64(0.0);
@@ -4965,7 +4965,7 @@ struct fmp_stream {
 #else
             double sum = 0.0;
             for (int64_t k = 0; k < m; ++k) sum += x[k];
-            out_mean = sum * inv_m;
+            out_mean = sum / dm;
             last_sum = sum;
             out_var = 0.0;
             for (int64_t k = 0; k < m; ++k) {
@@ -4986,7 +4986,7 @@ struct fmp_stream {
             double x_out = u_ring[static_cast<size_t>((g - 1) & raw_mask)];
             double x_in = x[m - 1];
             last_sum += (x_in - x_out);
-            mean_g = last_sum * inv_m;
+            mean_g = last_sum / dm;
             last_var += (x_in - mean_g) * (x_in - old_mu) - (x_out - mean_g) * (x_out - old_mu);
             var_g = last_var;
             if (var_g > last_peak_var) last_peak_var = var_g;
@@ -5326,7 +5326,7 @@ struct fmp_stream {
         // Scalar right-to-left tail (also cleanly handles slot 0 wrapping to cap - 1)
         for (; sc >= slot_lo; --sc, --k_cur) {
             const int64_t sp = (sc - 1) & mask;
-            const double cn = cov_p[sp] + df_prev * dg_a[sp] + dg_prev * df_a[sp];
+            const double cn = std::fma(df_prev, dg_a[sp], std::fma(dg_prev, df_a[sp], cov_p[sp]));
             cov_p[sc] = cn;
             if constexpr (ValidG) {
                 if constexpr (!TrackFull) {
@@ -7399,7 +7399,7 @@ int fmp_stream_update(fmp_stream_t* s, double x_new, fmp_tick_result_t* out) {
 
     // 4. Emit exact causal tick result + Ville E-process update
     res->gid = g;
-    res->left_dist = (__builtin_expect(best_left_corr > 1.0 - 1e-10 && best_left_idx >= 0, 0))
+    res->left_dist = (__builtin_expect(best_left_corr > 1.0 - 1e-4 && best_left_idx >= 0, 0))
         ? exact_z_dist_scalar(
             s->u_ring.data() + (g & s->raw_mask),
             s->u_ring.data() + (best_left_idx & s->raw_mask),
@@ -7480,13 +7480,13 @@ int fmp_stream_snapshot(
         double rc = s->track_full_mp ? s->right_corr[static_cast<size_t>(sl)] : kNegInf;
         int64_t ri = s->track_full_mp ? s->right_idx[static_cast<size_t>(sl)] : -1;
 
-        double ld = (__builtin_expect(lc > 1.0 - 1e-10 && li >= 0, 0))
+        double ld = (__builtin_expect(lc > 1.0 - 1e-4 && li >= 0, 0))
             ? exact_z_dist_scalar(
                 s->u_ring.data() + (gid & s->raw_mask),
                 s->u_ring.data() + (li & s->raw_mask),
                 s->m)
             : corr_to_dist(lc, s->m);
-        double rd = (__builtin_expect(rc > 1.0 - 1e-10 && ri >= 0, 0))
+        double rd = (__builtin_expect(rc > 1.0 - 1e-4 && ri >= 0, 0))
             ? exact_z_dist_scalar(
                 s->u_ring.data() + (gid & s->raw_mask),
                 s->u_ring.data() + (ri & s->raw_mask),
