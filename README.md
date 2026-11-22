@@ -16,7 +16,7 @@ Use it after collecting sensor readings or service metrics, before sending findi
 
 ![A five-sample shape at index 0 recurs at index 8 with twice the amplitude and an offset of six.](docs/repeated-shape.svg)
 
-[Run the example in Colab](https://colab.research.google.com/github/pgg898200-ship-it/flashmp/blob/main/examples/find_a_repeated_shape.ipynb) · [Read the notebook on GitHub](examples/find_a_repeated_shape.ipynb) · [Interactive Benchmark & Token Calculator](docs/index.html) · [Reproduce the benchmarks](benchmarks/RESULTS.md)
+[Interactive Benchmark & Token Calculator](https://pgg898200-ship-it.github.io/flashmp/) · [Run the example in Colab](https://colab.research.google.com/github/pgg898200-ship-it/flashmp/blob/main/examples/find_a_repeated_shape.ipynb) · [Read the notebook on GitHub](examples/find_a_repeated_shape.ipynb) · [Reproduce the benchmarks](benchmarks/RESULTS.md)
 
 ## Find the second occurrence
 

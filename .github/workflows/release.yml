@@ -208,25 +208,26 @@ jobs:
           ls -lh dist/
 
       - name: Verify installed wheel in isolated venv (bare-stdlib)
+        env:
+          EXPECTED_ISA: ${{ matrix.expected_isa }}
         run: |
           python3 -m venv /tmp/wheel-venv
           /tmp/wheel-venv/bin/pip install --no-deps dist/*.whl
-          (
-            cd /tmp
-            CXX=/nonexistent /tmp/wheel-venv/bin/python -c "
-            import flashmp
-            print('Installed file:', flashmp.__file__)
-            assert 'site-packages' in flashmp.__file__
-            assert flashmp.simd_isa() == '${{ matrix.expected_isa }}'
-            assert flashmp._native.get_fast() is not None
-            res = flashmp.profile([float(i % 7) for i in range(64)], m=8)
-            assert len(res.mp) == 57
-            print('Wheel bare-stdlib verification passed:', flashmp.version(), flashmp.simd_isa())
-            "
-            CXX=/nonexistent /tmp/wheel-venv/bin/flashmp demo
-            CXX=/nonexistent /tmp/wheel-venv/bin/flashmp install-skill --target claude --dest-dir /tmp/wheel-skill-check
-            test -f /tmp/wheel-skill-check/flashmp/SKILL.md
-          )
+          cd /tmp
+          CXX=/nonexistent /tmp/wheel-venv/bin/python - <<'PY'
+          import os
+          import flashmp
+          print("Installed file:", flashmp.__file__)
+          assert "site-packages" in flashmp.__file__
+          assert flashmp.simd_isa() == os.environ["EXPECTED_ISA"]
+          assert flashmp._native.get_fast() is not None
+          res = flashmp.profile([float(i % 7) for i in range(64)], m=8)
+          assert len(res.mp) == 57
+          print("Wheel bare-stdlib verification passed:", flashmp.version(), flashmp.simd_isa())
+          PY
+          CXX=/nonexistent /tmp/wheel-venv/bin/flashmp demo
+          CXX=/nonexistent /tmp/wheel-venv/bin/flashmp install-skill --target claude --dest-dir /tmp/wheel-skill-check
+          test -f /tmp/wheel-skill-check/flashmp/SKILL.md
 
       - name: Run full pytest suite (NumPy + exactness + streaming + sanitizers + red-team)
         run: |
