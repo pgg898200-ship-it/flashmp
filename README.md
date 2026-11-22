@@ -1,3 +1,5 @@
+<img align="right" src="docs/product-mark.svg" width="88" height="88" alt="Two signal windows show the same shape at different amplitudes.">
+
 # FlashMP
 
 **Find a shape that repeats in a time series, even when its level and amplitude change.**
