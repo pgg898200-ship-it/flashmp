@@ -1,25 +1,49 @@
 # FlashMP
 
-**Exact SIMD batch & bounded-window streaming Matrix Profile, multivariate `mSTUMP`, affine-invariant data-leakage scanning, reversible `-99.3%` token agentic digests, and commutative multi-agent firehose monitoring — in a zero-dependency C++20/Python package.**
+**Find a shape that repeats in a time series, even when its level and amplitude change.**
 
-> **Verified CPU Benchmark (`2026-11-22`, x86-64 AVX2+FMA, 2 vCPU):** On identical inputs with `< 4e-12` exact numerical parity, **FlashMP `0.1.0`** imports in **`0.78 ms`** (**`987×`** faster cold first-call than `STUMPY 1.14.1`), runs batch self-join **`18.4×`** faster than `STUMPY` and **`6.2×`** faster than `pyscamp`, accelerates multivariate `mSTUMP` by **`48.6×`**, streams exact bounded-window Matrix Profiles up to **`338×`** faster than `stumpy.stumpi` (fixing `stumpi`'s `1.0–1.6` stale-neighbor egress drift), and compresses `10,000`-point series by **`99.31%`** (`18,751 → 129` tokens) with **`100%`** shape-anomaly recall and **`0.0`** lossless drill-down error.
+FlashMP takes a sequence of numbers and a window length. For each window, its matrix profile gives the distance to the closest matching shape and the sample index where that match begins. A small distance identifies a recurring pattern (a *motif*). A large distance flags a window worth inspecting (a *discord*).
 
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](pyproject.toml)
-[![Zero Required Deps](https://img.shields.io/badge/Dependencies-0%20required-brightgreen.svg)](pyproject.toml)
+Use it after collecting sensor readings or service metrics, before sending findings to a dashboard, an alert rule, or an agent. The Python package runs its C++20 engine on your CPU. A CLI reads files and a local Model Context Protocol (MCP) server exposes the same analyses to agents.
 
----
+![A five-sample shape at index 0 recurs at index 8 with twice the amplitude and an offset of six.](docs/repeated-shape.svg)
 
-## Why FlashMP?
+[Run the example in Colab](https://colab.research.google.com/github/pgg898200-ship-it/flashmp/blob/main/examples/find_a_repeated_shape.ipynb) · [Read the notebook on GitHub](examples/find_a_repeated_shape.ipynb) · [Reproduce the benchmarks](benchmarks/RESULTS.md)
 
-Time-series infrastructure has a gap at the intersection of **exact numerical kernels** and **AI / multi-agent workflows**:
-- **`STUMPY`** requires ~109 MiB of NumPy + SciPy + Numba + LLVM, incurs a **41.9-second** cold JIT startup, runs `48×` slower on multivariate `mSTUMP`, and accumulates **stale expired neighbors (`> 1.0` error)** in `stumpi(egress=True)`.
-- **`pyscamp`** requires compiling from source on Linux, lacks streaming, multivariate `mSTUMP`, regime segmentation, and agentic tools, runs `5.1–6.2×` slower than FlashMP on AVX2 CPU, and produces **`NaN`** after transient `1e10` spikes.
-- **LLMs & MCP tools** either burn **~19,000 tokens** pasting raw floats into context or use lossy visual downsamplers (`LTTB`/`M4`) that achieve **`0%`** recall on amplitude-matched shape anomalies.
+## Find the second occurrence
 
-**FlashMP fixes all three in one zero-dependency C++20 engine.**
+Install from the tested Git revision in a Python 3.10+ environment with Git and a C++20 compiler (g++ or clang++). The first analysis builds and caches the native library. No Python runtime dependencies are required.
 
----
+```bash
+python -m pip install "git+https://github.com/pgg898200-ship-it/flashmp.git@fb233c569e1cc2b5a4f16c4a486d3f9db6e38807"
+```
+
+```python
+import flashmp
+
+signal = [1, 3, 2, 5, 4, 0, -2, 0, 8, 12, 10, 16, 14]
+profile = flashmp.stump(signal, m=5)
+
+match = int(profile.I_[0])
+print(match, signal[match:match + 5])
+print(f"{profile.P_[0]:.6f}")
+```
+
+```text
+8 [8, 12, 10, 16, 14]
+0.000000
+```
+
+The second window equals twice the first plus six. FlashMP standardizes each window before comparing it, so the two shapes have zero distance to the displayed precision. The index and distance arrays use zero-based window start positions.
+
+## Choose an entry point
+
+| If you have | Use | What you get |
+|---|---|---|
+| A numeric series and a pattern length | `stump(values, m)` | Nearest-neighbor distances and positions for each window |
+| Live samples and a fixed retention window | `StreamMP(m=…, window=…, egress=True)` | A profile over retained samples as old observations expire |
+| Training and evaluation series | `scan_leakage(train, test, m=…)` | Candidate overlapping windows, including scaled or sign-flipped matches |
+| A CSV and an agent that can call tools | MCP `ts_digest`, then `ts_drilldown` | A summary and a session handle for fetching exact samples by index |
 
 ## Verified Benchmarks (`2026-11-22`, 2-vCPU x86-64 AVX2+FMA)
 
@@ -43,23 +67,9 @@ Head-to-head guides: **[FlashMP vs STUMPY](docs/vs-stumpy.md)** · **[FlashMP vs
 
 ---
 
-## 5-Second Quickstart
+## Python and command-line examples
 
-### Install
-
-```bash
-pip install -e .
-```
-*(Zero mandatory dependencies. Automatically uses AVX2+FMA on x86-64, NEON on ARM64, or portable C++20 scalar fallback. Optional NumPy zero-copy when NumPy is already imported.)*
-
-### 1-Second Zero-Input Demo
-
-```bash
-flashmp demo
-flashmp bench
-```
-
-### 1. Drop-In `STUMPY` Replacement (Zero JIT Startup)
+### Batch and multivariate profiles
 
 ```python
 import flashmp as stumpy
@@ -70,7 +80,7 @@ stream = stumpy.stumpi(warmup, m=64, egress=True)
 stream.update(new_value)              # Exact bounded-window egress (no stale neighbors)
 ```
 
-### 2. Exact Bounded-Window Streaming (`RingMP`) + Anytime-Valid Alerts
+### Bounded-window streaming
 
 ```python
 import flashmp
@@ -82,7 +92,7 @@ with flashmp.StreamMP(m=64, window=4096, egress=True, alpha=0.01) as stream:
         print(f"Shape anomaly at gid={tick.gid}: E={tick.e_value:.1f}, z={tick.discord_z:.2f}")
 ```
 
-### 3. Reversible Agentic Digest (`-99.3%` Tokens, `100%` Lossless Drill-Down)
+### Summarize a series and inspect its raw samples
 
 ```python
 import flashmp
@@ -95,7 +105,7 @@ anom = d.drilldown_discord(0)
 exact_slice = d.drilldown(start=2200, end=2264)
 ```
 
-### 4. Affine-Invariant Train/Test Contamination Scanner (`LeakScan`)
+### Scan training and evaluation splits
 
 Catches verbatim copies, affine-rescaled/shifted ($a x + b$) windows, and sign-flipped overlaps between training corpora and evaluation splits:
 
@@ -106,7 +116,7 @@ report = flashmp.scan_leakage(train_series, test_series, m=64, corr_thresh=0.999
 print(report.summary())
 ```
 
-### 5. Commutative Multi-Agent Firehose Sifter (`SwarmMonitor`)
+### Monitor multiple channels
 
 Monitor 64–4,096 concurrent streams with scale-invariant causal `RingMP` (immune to $3.5\times$ high-amplitude normal-shape distractors), order-invariant CRDT alert fusion (`AlertLedger`), and strict token-capped briefs:
 
@@ -119,7 +129,7 @@ with flashmp.SwarmMonitor(channel_names, m=32, window=256, alpha=0.05) as mon:
     print(mon.brief(max_tokens=300))   # Strictly <= 300 tokens, ranked by E-value
 ```
 
-### 6. CLI & Zero-Dependency Native MCP Server
+### CLI and MCP server
 
 ```bash
 # Compress any CSV/TSV/JSON/JSONL/txt (or stdin '-') into a ~130-token digest
@@ -135,7 +145,7 @@ tail -f sensor.txt | flashmp watch -m 64 -w 4096 --alpha 0.01 --json
 flashmp-mcp
 ```
 
-Add FlashMP directly to **Claude Code / Cursor / Codex / Gemini CLI**:
+For clients that use JSON `mcpServers` configuration, point the command at the installed executable. Set the data directory to the location of your files.
 
 ```json
 {
@@ -150,11 +160,13 @@ Add FlashMP directly to **Claude Code / Cursor / Codex / Gemini CLI**:
 }
 ```
 
-MCP exposes 8 tools: `ts_digest`, `ts_drilldown`, `ts_anomalies`, `ts_regimes`, `ts_leak_scan`, `ts_stream_create`, `ts_stream_push`, and `ts_swarm_sift` — with strict `allowed_dirs` path/symlink confinement, bounded 64-session LRU cleanup, and DoS caps.
+Use `ts_digest` with `values` or a file `path`. Pass the returned `handle`, `start` and exclusive `end` to `ts_drilldown` in that server session to recover a raw interval.
+
+MCP exposes eight tools, `ts_digest`, `ts_drilldown`, `ts_anomalies`, `ts_regimes`, `ts_leak_scan`, `ts_stream_create`, `ts_stream_push`, and `ts_swarm_sift` — with strict `allowed_dirs` path/symlink confinement, bounded 64-session LRU cleanup, and DoS caps.
 
 ---
 
-## Honest Limitations & When to Choose Another Tool
+## Scope and limitations
 
 - **Massive single-series batch joins ($N > 10^6$) on an NVIDIA GPU:** Use **[pyscamp](https://github.com/zpzim/SCAMP)** with CUDA GPU acceleration. FlashMP currently targets CPU SIMD (AVX2+FMA / ARM64-NEON) and does not yet include a CUDA backend.
 - **Distributed multi-node Dask clusters or specialized niche MP routines:** Use **[STUMPY](https://github.com/TDAmeritrade/stumpy)** if you specifically rely on `stumped` (Dask), `ostinato` (consensus motifs), `mpdist`, or `pan` matrix profiles not yet implemented in FlashMP.

@@ -1,19 +1,19 @@
 ---
 name: flashmp
-description: Exact SIMD batch & bounded-window streaming Matrix Profile (18.4x faster than STUMPY, 6.2x faster than pyscamp on CPU, 48.6x faster multivariate mSTUMP, 338x faster exact streaming), FLOSS regime segmentation, affine-invariant train/test data-leakage scanning, reversible -99.3% token time-series digests with lossless drill-down, and commutative multi-agent firehose monitoring. Zero required Python dependencies, 0.78 ms import.
+description: Find recurring shapes and unusual windows in numeric time series. Compute CPU matrix profiles, monitor bounded streams, scan for train/test subsequence overlap, or give an agent a compact time-series summary with exact sample retrieval.
 ---
 
-# FlashMP — Agent Skill Playbook
+# FlashMP
 
-Use **FlashMP** whenever you are working with time-series data, live sensor/telemetry streams, anomaly detection, motif discovery, regime segmentation, train/test contamination audits, or feeding large numeric series into an LLM/multi-agent workflow.
+Use FlashMP when a task calls for shape matching over numeric sequences. Choose the window length `m` in samples. The Python package provides batch and streaming analysis, a file-oriented CLI and a local stdio MCP server.
 
-## Why Use FlashMP Instead of Raw Arrays, STUMPY, or pyscamp (CPU)
+- For a single trace, `stump(x, m)` returns nearest-neighbor distances (`P_`) and start indices (`I_`). A low finite distance means a close shape match after z-normalization.
+- For live data with a fixed retention length, construct `StreamMP` with `egress=True` and feed it samples in order.
+- For an evaluation audit, use `scan_leakage(train, test, m)` to identify windows with high positive or negative correlation for inspection.
+- For an agent reading a long series, call `ts_digest` with `values` or a file `path`. Use the returned handle in the same server session for `ts_drilldown` requests. It returns the original samples for a half-open range `[start, end)`.
+- For many channels, `SwarmMonitor` collects alerts into a bounded brief and keeps a rolling window of samples for drill-down.
 
-1. **Never paste raw time-series arrays into LLM context:** Call `flashmp.digest(x)` or `flashmp digest data.csv` (or MCP tool `ts_digest`) to compress `10,000`-point series by **99.31%** (`18,751 → 129` tokens in `33.6 ms`) while preserving **`100%`** shape-anomaly and regime-shift recall (vs **`0%`** for matched-token LTTB/M4 downsamplers) and **100% lossless drill-down** (`drilldown(start, end)`, `drilldown_discord(rank)`, `drilldown_motif(rank)`).
-2. **Drop-in `STUMPY` replacement with `0.78 ms` cold import:** Swap `import stumpy` to `import flashmp as stumpy` (`stump`, `mstump`, `stumpi`, `abjoin`) to eliminate STUMPY's `41.9 s` Numba JIT cold start and get **`18.4×`** faster batch self-joins and **`48.6×`** faster multivariate `mSTUMP` on CPU with zero required dependencies.
-3. **Exact bounded-window streaming (`StreamMP` / `stumpi`):** Unlike `stumpy.stumpi(egress=True)` (which accumulates `1.02–1.57` stale-neighbor error after egress), FlashMP's `RingMP` maintains exact `< 2e-12` sliding-window Matrix Profiles at `1.54–3.14 µs/tick` (`166×–338×` faster) with anytime-valid Hölder-tempered exchangeable e-CUSUM anomaly alerts.
-4. **Always audit time-series benchmarks for affine leakage:** Before trusting a forecasting model's score, run `flashmp.scan_leakage(train, test, m=64)` or `flashmp leak-scan train.csv test.csv -m 64` to catch verbatim copies, affine-rescaled/shifted ($a x + b$), and sign-flipped subsequence overlaps — even in the presence of `1e10` DC offsets or transient `1e10` spikes.
-5. **Multi-agent firehose monitoring (`SwarmMonitor`):** Monitor 64–4,096 concurrent streams (`103k–139k` ch-ticks/s) with scale-invariant anomaly detection (`0` false positives on `3.5×` loud normal-shape distractors), mathematically provable commutative/associative CRDT alert fusion (`AlertLedger`), and strictly token-bounded briefs (`brief(max_tokens=300)`).
+[Install and run a worked example](README.md#find-the-second-occurrence) · [Measured workloads and limitations](benchmarks/RESULTS.md)
 
 ## Quick Commands
 
@@ -62,7 +62,7 @@ report = flashmp.scan_leakage(train_series, test_series, m=64, corr_thresh=0.999
 print(report.summary())
 ```
 
-## MCP Configuration (Claude Code / Cursor / Codex / Gemini CLI)
+## MCP configuration for clients using the JSON mcpServers format
 
 ```json
 {
@@ -78,7 +78,7 @@ print(report.summary())
 ```
 
 ### MCP Tools Exposed
-- `ts_digest` — Structural compression of array or sandboxed file into ~130-token digest + session handle
+- `ts_digest` — Structural compression of array or sandboxed file into a compact digest and session handle
 - `ts_drilldown` — Bit-exact lossless recovery of raw slice `[start:end]` or `discord_rank` from session handle
 - `ts_anomalies` — Exact top-k shape discords with z-scores and nearest normal neighbors
 - `ts_regimes` — Exact FLOSS semantic regime boundaries
