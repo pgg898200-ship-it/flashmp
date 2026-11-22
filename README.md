@@ -1,4 +1,4 @@
-<img align="right" src="docs/product-mark.svg" width="88" height="88" alt="Two signal windows show the same shape at different amplitudes.">
+<img align="right" src="docs/product-mark.svg" width="88" height="88" alt="Two repeated subsequences align across an observed series. Blue brackets identify their locations.">
 
 # FlashMP
 
