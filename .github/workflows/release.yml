@@ -232,7 +232,17 @@ jobs:
       - name: Run full pytest suite (NumPy + exactness + streaming + sanitizers + red-team)
         run: |
           python3 -m pip install numpy pytest
-          PYTHONPATH=src pytest tests/ -v
+          set +e
+          PYTHONPATH=src python3 -m pytest tests/ -v --tb=short 2>&1 | tee /tmp/pytest_out.txt
+          RC=${PIPESTATUS[0]}
+          set -e
+          {
+            echo "### Pytest (${{ matrix.os_label }}-${{ matrix.arch }}) — exit ${RC}"
+            echo '```text'
+            tail -n 80 /tmp/pytest_out.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$RC"
 
       - uses: actions/upload-artifact@v4
         with:
